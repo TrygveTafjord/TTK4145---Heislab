@@ -1,4 +1,4 @@
-package elev
+package elevio
 
 type ElevatorState string
 
