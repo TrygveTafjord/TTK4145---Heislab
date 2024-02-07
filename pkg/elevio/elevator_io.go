@@ -169,11 +169,4 @@ func toBool(a byte) bool {
 	return b
 }
 
-func PollingGoRoutine(Button_ch chan ButtonEvent, Floor_sensor_ch chan int, Stop_button_ch chan bool, Obstruction_ch chan bool) {
 
-	go PollFloorSensor(Floor_sensor_ch)
-	go PollButtons(Button_ch)
-	go PollStopButton(Stop_button_ch)
-	go PollObstructionSwitch(Obstruction_ch)
-
-}
