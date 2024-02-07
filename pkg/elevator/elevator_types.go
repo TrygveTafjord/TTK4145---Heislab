@@ -15,10 +15,11 @@ const (
 	EB_Idle ElevatorBehaviour = iota
 	EB_DoorOpen
 	EB_Moving
+	EB_Stopped
 )
 
 type Elevator struct {
-	Floor     	int
+  Floor     	int
 	Dirn      	elevio.MotorDirection
 	Requests  	[N_FLOORS][N_BUTTONS]uint8
 	Behaviour 	ElevatorBehaviour
