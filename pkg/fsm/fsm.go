@@ -16,6 +16,8 @@ func FSM(Button_ch chan elevio.ButtonEvent, Floor_sensor_ch chan int, Stop_butto
 		case Buttonevent := <-Button_ch:
 			
 		case Newfloor := <-Floor_sensor_ch:
+			fsm_onFloorArrival(ElevatorPtr, Newfloor)
+
 			
 		case Stopbutton := <-Stop_button_ch:
 			HandleStopButtonPressed(ElevatorPtr)
@@ -27,6 +29,24 @@ func FSM(Button_ch chan elevio.ButtonEvent, Floor_sensor_ch chan int, Stop_butto
 }
 
 
+func fsmOnFloorArrival(e *elevator.Elevator, newFloor int) {
+	fmt.Printf("\n\n Arrival at (%d)\n", newFloor)
+
+	e.Floor = newFloor
+	SetFloorIndicator(newFloor) 
+
+	switch elevator.Behaviour {
+	case EB_Moving:
+		if requestsShouldStop(elevator) { // ----------- Sjekker i køssystem om vi skal stoppe
+			SetMotorDirection(MD_Stop)
+			SetDoorOpenLamp(1)
+			e = requestsClearAtCurrentFloor(e)  // ---------- Ber om at denne etasjen fjernes fra køer
+			Timer_start(3) // ----------- Hvilken input skal denne ha
+			setAllLights(e)             // ---------- Oppdaterer alle lys basert på køer og status
+			e.Behaviour = EB_DoorOpen
+		}
+	}
+}
 
 
 
