@@ -20,7 +20,7 @@ const (
 
 type Elevator struct {
 	floor     uint8
-	dirn      MotorDirection
+	dirn      elevio.MotorDirection
 	requests  [N_FLOORS][N_BUTTONS]uint8
 	behaviour ElevatorBehaviour
 	double    float64
