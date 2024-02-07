@@ -1,8 +1,7 @@
 package elevator
 
 import (
-
-	"OTP.com/Heis2e/elevio"
+	"OTP.com/Heis2e/pkg/elevio"
 )
 
 const (
