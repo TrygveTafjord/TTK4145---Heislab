@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <sys/time.h>
+#include "timer.h"
 
 static double get_wall_time(void){
     struct timeval time;
