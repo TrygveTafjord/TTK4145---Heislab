@@ -13,11 +13,12 @@ func FSM(Button_ch chan ButtonEvent, Floor_sensor_ch chan int, Stop_button_ch ch
 		select {
 		case Buttonevent := <-Button_ch:
 			fsmButtonPress(Buttonevent, ElevatorPtr)
-			fmt.Print("hello from button pressed in FSM")
 		case Newfloor := <-Floor_sensor_ch:
 			fsmOnFloorArrival(ElevatorPtr, Newfloor)
+
 		case <-Stop_button_ch:
 			HandleStopButtonPressed(ElevatorPtr)
+
 			//set state stopped
 			//case Obstruction := <-Obstruction_ch:
 
@@ -29,18 +30,38 @@ func fsmOnFloorArrival(e *Elevator, newFloor int) {
 
 	e.Floor = newFloor
 	SetFloorIndicator(newFloor)
+	fmt.Printf("floor check:  %v", newFloor)
+	fmt.Printf("fsmOnFloorArrival status: %v\n", e.Requests, "Direction: %v\n", e.Dirn)
 
 	switch e.Behaviour {
 	case EB_Moving:
-		if requests_shouldStop(e) { // ----------- Sjekker i køssystem om vi skal stoppe
+		if requests_shouldStop(*e) { // ----------- Sjekker i køssystem om vi skal stoppe
 			SetMotorDirection(MD_Stop)
 			SetDoorOpenLamp(true)
 			requests_clearAtCurrentFloor(e) // ---------- Ber om at denne etasjen fjernes fra køer
-			timer.Timer_start(3)            // ----------- Hvilken input skal denne ha
-			setAllLights(e)                 // ---------- Oppdaterer alle lys basert på køer og status
+			timer.Timer_start(e.Stop_time)  //sett på en watchdog timer som skriver til kanal
 			e.Behaviour = EB_DoorOpen
+			setAllLights(e)
+			for !timer.Timer_timedOut() {
+
+			}
+
+			e.Dirn, e.Behaviour = GetDirectionAndBehaviour(e)
+
+			switch e.Behaviour {
+
+			case EB_DoorOpen:
+				SetDoorOpenLamp(true)
+				timer.Timer_start(e.Stop_time)
+				requests_clearAtCurrentFloor(e)
+
+			case EB_Moving:
+				SetMotorDirection(e.Dirn)
+			}
+
 		}
 	}
+
 }
 
 func fsmButtonPress(Buttonevent ButtonEvent, elev *Elevator) {
@@ -60,11 +81,23 @@ func fsmButtonPress(Buttonevent ButtonEvent, elev *Elevator) {
 
 	case EB_Idle:
 		elev.Requests[Buttonevent.Floor][Buttonevent.Button] = 1
-		elev.Dirn, elev.Behaviour = GetDirectionAndBehaviour(Buttonevent.Floor, elev.Floor)
-		if elev.Behaviour == EB_Moving {
+		elev.Dirn, elev.Behaviour = GetDirectionAndBehaviour(elev)
+
+		switch elev.Behaviour {
+
+		case EB_DoorOpen:
+			SetDoorOpenLamp(true)
+			timer.Timer_start(elev.Stop_time)
+			requests_clearAtCurrentFloor(elev)
+
+		case EB_Moving:
 			SetMotorDirection(elev.Dirn)
 		}
+	case EB_Stopped:
+		fmt.Printf("The elevator is in state stopped, and a button was pressed, fix logic!")
 	}
+	setAllLights(elev)
+
 }
 
 func HandleStopButtonPressed(e *Elevator) {
