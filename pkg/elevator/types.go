@@ -1,8 +1,5 @@
 package elevator
 
-import (
-	"OTP.com/Heis2e/pkg/elevio"
-)
 
 const (
 	N_FLOORS  = 4
@@ -19,8 +16,8 @@ const (
 )
 
 type Elevator struct {
-  Floor     	int
-	Dirn      	elevio.MotorDirection
+  	Floor     	int
+	Dirn      	MotorDirection
 	Requests  	[N_FLOORS][N_BUTTONS]uint8
 	Behaviour 	ElevatorBehaviour
 	Stop_time   float64
