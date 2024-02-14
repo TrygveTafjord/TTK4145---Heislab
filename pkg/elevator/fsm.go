@@ -2,6 +2,7 @@ package elevator
 
 import (
 	"fmt"
+
 	"OTP.com/Heis2e/pkg/timer"
 )
 
@@ -58,11 +59,20 @@ func fsmButtonPress(Buttonevent ButtonEvent, elev *Elevator) {
 
 	case EB_Idle:
 		elev.Requests[Buttonevent.Floor][Buttonevent.Button] = 1
-		elev.Dirn, elev.Behaviour = GetDirectionAndBehaviour(Buttonevent.Floor, elev.Floor)
-		if elev.Behaviour == EB_Moving {
+		//GetDirection()
+		elev.Dirn, elev.Behaviour = GetDirectionAndBehaviour(elev)
+		
+		switch elev.Behaviour {
+
+		case EB_DoorOpen:
+			SetDoorOpenLamp(true)
+			timer.Timer_start(elev.Stop_time)
+			//requests_clearAtCurrentFloor(elevator)
+
+		case EB_Moving:
 			SetMotorDirection(elev.Dirn)
-		}
 	}
+}
 }
 
 func HandleStopButtonPressed(e *Elevator) {
