@@ -1,4 +1,4 @@
-package elevio
+package elevator
 
 import (
 	"fmt"
@@ -56,7 +56,7 @@ func PollButtons(receiver chan<- ButtonEvent) {
 		for f := 0; f < _numFloors; f++ {
 			for b := ButtonType(0); b < 3; b++ {
 				v := GetButton(b, f)
-				if v != prev[f][b] && v != false {
+				if v != prev[f][b] && v {
 					receiver <- ButtonEvent{f, ButtonType(b)}
 				}
 				prev[f][b] = v
@@ -168,5 +168,3 @@ func toBool(a byte) bool {
 	}
 	return b
 }
-
-
