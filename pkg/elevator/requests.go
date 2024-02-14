@@ -32,6 +32,8 @@ func requests_here(e Elevator) bool {
 	return false
 }
 
+halla balla
+
 func requests_shouldStop(e Elevator) bool {
 	switch e.Dirn {
 	case MD_Down:
