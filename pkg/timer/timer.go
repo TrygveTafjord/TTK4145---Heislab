@@ -14,9 +14,13 @@ func Get_wall_time() float64 {
 	return float64(time.Now().UnixNano()) * 1e-9
 }
 
-func Timer_start(duration float64) {
+func Run_timer(duration float64, timerFinished chan bool) {
 	timerEndTime = Get_wall_time() + duration
-	timerActive = true
+	for Get_wall_time() < timerEndTime {
+
+	}
+	timerFinished <- true
+
 }
 
 // timer_stop in case we need to stop the timer prematurely, i think.
@@ -25,5 +29,6 @@ func Timer_stop() {
 }
 
 func Timer_timedOut() bool {
-	return (timerActive && Get_wall_time() > timerEndTime)
+	return (timerActive && (Get_wall_time() > timerEndTime))
 }
+

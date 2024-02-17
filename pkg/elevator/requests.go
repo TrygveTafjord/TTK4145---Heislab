@@ -32,8 +32,6 @@ func requests_here(e Elevator) bool {
 	return false
 }
 
-halla balla
-
 func requests_shouldStop(e Elevator) bool {
 	switch e.Dirn {
 	case MD_Down:
@@ -115,12 +113,12 @@ func requests_shouldClearImmediately(e *Elevator, Buttonevent ButtonEvent) bool 
 	switch e.Dirn {
 
 	case MD_Up:
-		if Buttonevent.Floor == e.Floor && Buttonevent.Button == BT_HallUp {
+		if Buttonevent.Floor == e.Floor && (Buttonevent.Button == BT_HallUp || Buttonevent.Button == BT_Cab){
 			return true
 		}
 
 	case MD_Down:
-		if Buttonevent.Floor == e.Floor && Buttonevent.Button == BT_HallDown {
+		if Buttonevent.Floor == e.Floor && (Buttonevent.Button == BT_HallDown || Buttonevent.Button == BT_Cab){
 			return true
 		}
 
