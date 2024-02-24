@@ -3,7 +3,7 @@ package main
 import (
 	"time"
 
-	"OTP.com/Heis2e/pkg/elevator"
+	"project.com/pkg/elevator"
 )
 
 func main() {
