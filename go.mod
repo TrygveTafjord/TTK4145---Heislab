@@ -1,3 +1,4 @@
-module OTP.com/Heis2e
+module project.com
+
 
 go 1.20

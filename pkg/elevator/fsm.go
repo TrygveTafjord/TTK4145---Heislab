@@ -2,8 +2,7 @@ package elevator
 
 import (
 	"fmt"
-
-	"OTP.com/Heis2e/pkg/timer"
+	"project.com/pkg/timer"
 )
 
 func FSM(Button_ch chan ButtonEvent, Floor_sensor_ch chan int, Stop_button_ch chan bool, Obstruction_ch chan bool, timerFinished chan bool) {
