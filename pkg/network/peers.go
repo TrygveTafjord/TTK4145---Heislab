@@ -76,7 +76,7 @@ func ReceiverPeers(port int, peerUpdateCh chan<- PeerUpdate) {
 
 			for k, _ := range lastSeen {
 				p.Peers = append(p.Peers, k)
-			}
+}
 
 			sort.Strings(p.Peers)
 			sort.Strings(p.Lost)

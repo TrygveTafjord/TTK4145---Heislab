@@ -2,6 +2,7 @@ package elevator
 
 import (
 	"fmt"
+
 	"project.com/pkg/timer"
 )
 
