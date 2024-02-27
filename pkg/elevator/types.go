@@ -18,7 +18,7 @@ const (
 type Elevator struct {
   	Floor     	int
 	Dirn      	MotorDirection
-	Requests  	[N_FLOORS][N_BUTTONS]uint8
+	Requests  	[N_FLOORS][N_BUTTONS]bool
 	Behaviour 	ElevatorBehaviour
 	Stop_time   float64
 }
