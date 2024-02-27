@@ -18,7 +18,7 @@ func FSM(Button_ch chan ButtonEvent, Floor_sensor_ch chan int, Stop_button_ch ch
 		case <-Stop_button_ch:
 			HandleStopButtonPressed(ElevatorPtr)
 			//set state stopped
-			//case Obstruction := <-Obstruction_ch:
+			//case Obstruction := <-Obstruction_ch: gutta
 		case <-timerFinished:
 			fmt.Print("It happened")
 			HandleDeparture(ElevatorPtr)

@@ -11,12 +11,19 @@ import (
 )
 
 type HelloMsg struct {
-	Message string
-	Iter    int
+	Id        string
+	Counter   int
+	NewInfo   bool
+	Floor     int
+	Dirn      elevator.MotorDirection
+	Requests  [elevator.N_FLOORS][elevator.N_BUTTONS]bool
+	Behaviour elevator.ElevatorBehaviour
 }
 
 func main() {
+	fmt.Printf("ole, men øverst ")
 	elevator.Init("localhost:15657", 4)
+	fmt.Printf("ole ")
 
 	Button_ch := make(chan elevator.ButtonEvent)
 	Floor_sensor_ch := make(chan int)
@@ -28,6 +35,7 @@ func main() {
 	go elevator.PollButtons(Button_ch)
 	go elevator.PollStopButton(Stop_button_ch)
 	go elevator.PollObstructionSwitch(Obstruction_ch)
+
 	go elevator.FSM(Button_ch, Floor_sensor_ch, Stop_button_ch, Obstruction_ch, Timer_ch)
 
 	/* 	for {
@@ -77,6 +85,12 @@ func main() {
 	var id string
 	flag.StringVar(&id, "id", "", "id of this peer")
 	flag.Parse()
+	Requests := [4][3]bool{
+		{true, true, true},
+		{true, true, true},
+		{true, true, true},
+		{true, true, true},
+	}
 
 	// ... or alternatively, we can use the local IP address.
 	// (But since we can run multiple programs on the same PC, we also append the
@@ -105,14 +119,14 @@ func main() {
 	// ... and start the transmitter/receiver pair on some port
 	// These functions can take any number of channels! It is also possible to
 	//  start multiple transmitters/receivers on the same port.
-	go network.TransmitterBcast(16569, helloTx)
-	go network.ReceiverBcast(16569, helloRx)
+	go network.TransmitterBcast(20007, helloTx)
+	go network.ReceiverBcast(20007, helloRx)
 
 	// The example message. We just send one of these every second.
 	go func() {
-		helloMsg := HelloMsg{"Hello from " + id, 0}
+		helloMsg := HelloMsg{"Ole er ikke pedo", 0, true, 69, elevator.MD_Down, Requests, elevator.EB_DoorOpen}
 		for {
-			helloMsg.Iter++
+			helloMsg.Counter++
 			helloTx <- helloMsg
 			time.Sleep(1 * time.Second)
 		}
