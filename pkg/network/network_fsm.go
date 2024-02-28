@@ -1,124 +1,65 @@
 package network
 
 import (
-	/*
-	   	"flag"
+	"fmt"
 
-	   "fmt"
-	   "net/mail"
-	   "os"
-	*/
-/* 	"fmt"
+	"time"
 
-	"project.com/pkg/elevator" */
+	"project.com/pkg/elevator"
 )
 
-const port_number int = 20007
+func Network_fsm(infoUpdate chan Msg, Send chan Msg, UpdatePeers chan string) {
 
-/* func network_fsm() {
+	Requests := [4][3]bool{
+		{true, true, true},
+		{true, true, true},
+		{true, true, true},
+		{true, true, true},
+	}
+	counter := 0
 
-	Msg_ch := make(chan Msg)
-	Confirm_ch := make(chan string)
-	ButtonEvent_ch := make(chan elevator.ButtonEvent)
-	ImAliveCounter_ch := make(chan string)
+	id, err := LocalIP()
+	if err != nil {
+		fmt.Printf("could not get IP")
+	}
 
-	go TransmitterBcast(port_number, ImAliveCounter_ch, Msg_ch)
-	go ReceiverBcast(port_number, ImAliveCounter_ch, Msg_ch)
+	peerUpdateCh := make(chan PeerUpdate)
+	peerTxEnable := make(chan bool)
+	helloTx := make(chan Msg)
+	helloRx := make(chan Msg)
 
-	orderCounter := 0
+	go TransmitterPeers(15647, id, peerTxEnable)
+	go ReceiverPeers(15647, peerUpdateCh)
+	go TransmitterBcast(20007, helloTx)
+	go ReceiverBcast(20007, helloRx)
 
+	go func() {
+
+		helloMsg := Msg{id, 0, true, 69, elevator.MD_Down, Requests, elevator.EB_DoorOpen}
+		for {
+			helloMsg.Counter++
+			helloTx <- helloMsg
+			time.Sleep(2 * time.Second)
+		}
+	}()
+
+	fmt.Println("Started")
 	for {
 		select {
-		case msg := <-Msg_ch:
-			if msg.NewInfo {
+		case p := <-peerUpdateCh:
+			fmt.Printf("Peer update:\n")
+			fmt.Printf("  Peers:    %q\n", p.Peers)
+			fmt.Printf("  New:      %q\n", p.New)
+			fmt.Printf("  Lost:     %q\n", p.Lost)
 
-				//UppdateInfobank(msg)
-				//UppdateNodeStatus(msg)
+		case a := <-helloRx:
+			fmt.Printf("Received: %#v\n", a)
+			//send_to_infobank()
 
-				orderCounter += 1
-				localIP, err := LocalIP()
-				if err != nil {
-					fmt.Println(err)
-					localIP = "DISCONNECTED"
-				}
-				Confirm_ch <- localIP
-
-				fmt.Print("new info recieved")
-			}
-		case btn := <-ButtonEvent_ch:
-			//msg := createMsg();
-			//Msg_ch <- msg
-			//enter_confirm_fsm()
-			fmt.Print("Buttonevent happened: ", btn)
-
-		case <-ImAliveCounter_ch:
-
-			//msg := createMsg();
-			TransmitterBcast(port_number)
-
+		case i := <-infoUpdate:
+			Hello := Msg{id, counter,true, i.Floor, i.Dirn, i.Requests, i.Behaviour}
+			helloTx <- Hello
 		}
-
 	}
 
-} */
-
-// Our id can be anything. Here we pass it on the command line, using
-//  `go run main.go -id=our_id`
-
-// We make a channel for receiving updates on the id's of the peers that are
-//  alive on the network
-/* peerUpdateCh := make(chan PeerUpdate)
-// We can disable/enable the transmitter after it has been started.
-// This could be used to signal that we are somehow "unavailable".
-peerTxEnable := make(chan bool)
-go TransmitterPeers(15647, id, peerTxEnable)
-go ReceiverPeers(15647, peerUpdateCh)
-
-// We make channels for sending and receiving our custom data types
-helloTx := make(chan Msg)
-helloRx := make(chan Msg)
-// ... and start the transmitter/receiver pair on some port
-// These functions can take any number of channels! It is also possible to
-//  start multiple transmitters/receivers on the same port.
-go TransmitterBcast(16569, helloTx)
-go ReceiverBcast(16569, helloRx)
-
-// The example message. We just send one of these every second.
-go func() {
-	Requests := [][]bool{
-		{true,true,true},
-		{true,true,true},
-		{true,true,true},
-		{true,true,true},
-	}
-	helloMsg := Msg{"Dette er id",
-					69,
-					true,
-					420,
-					elevator.MotorDirection.MD_Up,
-					Requests,
-	 				elevator.ElevatorBehaviour.idle}
-	for {
-		helloTx <- helloMsg
-		time.Sleep(1 * time.Second)
-	}
-}()
-
-
-
-
-
-fmt.Println("Started")
-for {
-	select {
-	case p := <-peerUpdateCh:
-		fmt.Printf("Peer update:\n")
-		fmt.Printf("  Peers:    %q\n", p.Peers)
-		fmt.Printf("  New:      %q\n", p.New)
-		fmt.Printf("  Lost:     %q\n", p.Lost)
-
-	case a := <-helloRx:
-		fmt.Printf("Received: %#v\n", a)
-	}
 }
- */
