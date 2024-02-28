@@ -3,7 +3,7 @@ package main
 import (
 	//"time"
 
-	"bytes"
+	//"bytes"
 	"encoding/json"
 	"fmt"
 	"os/exec"
@@ -11,12 +11,6 @@ import (
 	"project.com/pkg/elevator"
 	"project.com/pkg/hallreqass"
 )
-
-type Output struct {
-	ResultField1 [][]bool
-	ResultField2 [][]bool
-	ResultField3 [][]bool
-}
 
 func main() {
 	// elevator.Init("localhost:15657", 4)
@@ -28,6 +22,8 @@ func main() {
 	// Timer_ch := make(chan bool,5)
 
 	var reqs [4][3]bool
+	reqs[3][1] = true
+	//reqs[3][1] = true
 	testElevator := elevator.Elevator{
 		Floor:     2,
 		Dirn:      elevator.MD_Up,
@@ -35,14 +31,14 @@ func main() {
 		Behaviour: elevator.EB_Moving,
 	}
 	testElevator1 := elevator.Elevator{
-		Floor:     3,
-		Dirn:      elevator.MD_Up,
+		Floor:     2,
+		Dirn:      elevator.MD_Down,
 		Requests:  reqs,
 		Behaviour: elevator.EB_Moving,
 	}
 	testElevator2 := elevator.Elevator{
 		Floor:     1,
-		Dirn:      elevator.MD_Down,
+		Dirn:      elevator.MD_Up,
 		Requests:  reqs,
 		Behaviour: elevator.EB_Idle,
 	}
@@ -51,44 +47,28 @@ func main() {
 	E2map := hallreqass.CreateStateMap(testElevator1)
 	E3map := hallreqass.CreateStateMap(testElevator2)
 
-	jsonData := hallreqass.CreateMasterJSON(testElevator, E1map, E2map, E3map)
+	jsonBytes := hallreqass.CreateMasterJSON(testElevator, E1map, E2map, E3map)
 
-	// Prepare the D program command
-	cmd := exec.Command("./hall_request_assigner") // Adjust the executable name/path as necessary
-
-	// Set the stdin to be our input JSON
-	cmd.Stdin = bytes.NewReader(jsonData)
-
-	// Capture the stdout for the JSON output
-	var stdout bytes.Buffer
-	cmd.Stdout = &stdout
-
-	// Run the D program
-	if err := cmd.Run(); err != nil {
-		fmt.Printf("Error running D program: %v", err)
+	ret, err := exec.Command("./hall_request_assigner", "-i", string(jsonBytes)).CombinedOutput()
+	if err != nil {
+		fmt.Println("exec.Command error: ", err)
+		fmt.Println(string(ret))
+		return
 	}
 
-	// The D program has completed, and its JSON output should now be in stdout
-	// Unmarshal the JSON output into an Output struct
-	var outputData Output
-	if err := json.Unmarshal(stdout.Bytes(), &outputData); err != nil {
-		fmt.Printf("Error unmarshaling output JSON: %v", err)
+	output := new(map[string][][2]bool)
+	err = json.Unmarshal(ret, &output)
+	if err != nil {
+		fmt.Println("json.Unmarshal error: ", err)
+		return
 	}
 
-	// Use the output data as needed
-	fmt.Printf("Received output: %+v\n", outputData)
+	fmt.Printf("output: \n")
+	for k, v := range *output {
+		fmt.Printf("%6v :  %+v\n", k, v)
+	}
 
-	// var prettyJSON bytes.Buffer
-
-	// // Use json.Indent to format the JSON
-	// err := json.Indent(&prettyJSON, jsonData, "", "    ")
-	// if err != nil {
-	// 	fmt.Println("Error pretty-printing JSON:", err)
-	// 	return
-	// }
-
-	// // Print the pretty-printed JSON
-	// fmt.Println(prettyJSON.String())
+	// Print the pretty-printed JSON
 
 	// go elevator.PollFloorSensor(Floor_sensor_ch)
 	// go elevator.PollButtons(Button_ch)
