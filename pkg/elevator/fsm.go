@@ -2,6 +2,7 @@ package elevator
 
 import (
 	"fmt"
+
 	"project.com/pkg/timer"
 )
 
@@ -17,7 +18,7 @@ func FSM(Button_ch chan ButtonEvent, Floor_sensor_ch chan int, Stop_button_ch ch
 		case <-Stop_button_ch:
 			HandleStopButtonPressed(ElevatorPtr)
 			//set state stopped
-			//case Obstruction := <-Obstruction_ch:
+			//case Obstruction := <-Obstruction_ch: gutta
 		case <-timerFinished:
 			fmt.Print("It happened")
 			HandleDeparture(ElevatorPtr)
@@ -73,14 +74,14 @@ func fsmButtonPress(Buttonevent ButtonEvent, elev *Elevator, timerFinished chan 
 		if requests_shouldClearImmediately(elev, Buttonevent) {
 			go timer.Run_timer(3, timerFinished)
 		} else {
-			elev.Requests[Buttonevent.Floor][Buttonevent.Button] = 1
+			elev.Requests[Buttonevent.Floor][Buttonevent.Button] = true
 		}
 
 	case EB_Moving:
-		elev.Requests[Buttonevent.Floor][Buttonevent.Button] = 1
+		elev.Requests[Buttonevent.Floor][Buttonevent.Button] = true
 
 	case EB_Idle:
-		elev.Requests[Buttonevent.Floor][Buttonevent.Button] = 1
+		elev.Requests[Buttonevent.Floor][Buttonevent.Button] = true
 		elev.Dirn, elev.Behaviour = GetDirectionAndBehaviour(elev)
 
 		switch elev.Behaviour {
@@ -116,7 +117,7 @@ func HandleStopButtonPressed(e *Elevator) {
 func setAllLights(e *Elevator) {
 	for floor := 0; floor < N_FLOORS; floor++ {
 		for btn := 0; btn < N_BUTTONS; btn++ {
-			SetButtonLamp(ButtonType(btn), floor, e.Requests[floor][btn] == 1) //Ops
+			SetButtonLamp(ButtonType(btn), floor, e.Requests[floor][btn] == true) //Ops
 		}
 	}
 }

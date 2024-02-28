@@ -1,6 +1,5 @@
 package elevator
 
-
 const (
 	N_FLOORS  = 4
 	N_BUTTONS = 3
@@ -16,10 +15,12 @@ const (
 )
 
 type Elevator struct {
-  	Floor     	int
-	Dirn      	MotorDirection
-	Requests  	[N_FLOORS][N_BUTTONS]uint8
-	Behaviour 	ElevatorBehaviour
-	Stop_time   float64
+	Id                      string
+	Completed_Order_Counter int
+	Floor                   int
+	Dirn                    MotorDirection
+	Requests                [N_FLOORS][N_BUTTONS]bool
+	Behaviour               ElevatorBehaviour
+	Stop_time               float64
 }
 

@@ -3,7 +3,7 @@ package elevator
 func requests_above(e Elevator) bool {
 	for flr := e.Floor + 1; flr < N_FLOORS; flr++ {
 		for btn := 0; btn < N_BUTTONS; btn++ {
-			if e.Requests[flr][btn] == 1 {
+			if e.Requests[flr][btn] == true {
 				return true
 			}
 		}
@@ -14,7 +14,7 @@ func requests_above(e Elevator) bool {
 func requests_below(e Elevator) bool {
 	for flr := 0; flr < e.Floor; flr++ {
 		for btn := 0; btn < N_BUTTONS; btn++ {
-			if e.Requests[flr][btn] == 1 {
+			if e.Requests[flr][btn] == true {
 				return true
 			}
 		}
@@ -24,7 +24,7 @@ func requests_below(e Elevator) bool {
 
 func requests_here(e Elevator) bool {
 	for btn := 0; btn < N_BUTTONS; btn++ {
-		if e.Requests[e.Floor][btn] == 1 {
+		if e.Requests[e.Floor][btn] == true {
 			return true
 		}
 	}
@@ -35,12 +35,12 @@ func requests_here(e Elevator) bool {
 func requests_shouldStop(e Elevator) bool {
 	switch e.Dirn {
 	case MD_Down:
-		return (e.Requests[e.Floor][BT_HallDown] == 1 ||
-			e.Requests[e.Floor][BT_Cab] == 1 ||
+		return (e.Requests[e.Floor][BT_HallDown] == true ||
+			e.Requests[e.Floor][BT_Cab] == true ||
 			!requests_below(e))
 	case MD_Up:
-		return (e.Requests[e.Floor][BT_HallUp] == 1 ||
-			e.Requests[e.Floor][BT_Cab] == 1 ||
+		return (e.Requests[e.Floor][BT_HallUp] == true ||
+			e.Requests[e.Floor][BT_Cab] == true ||
 			!requests_above(e))
 	default:
 		return true
@@ -86,24 +86,24 @@ func GetDirectionAndBehaviour(elev *Elevator) (MotorDirection, ElevatorBehaviour
 
 func requests_clearAtCurrentFloor(e *Elevator) {
 
-	e.Requests[e.Floor][BT_Cab] = 0
+	e.Requests[e.Floor][BT_Cab] = false
 	switch e.Dirn {
 
 	case MD_Up:
-		if !requests_above(*e) && !(e.Requests[e.Floor][BT_HallUp] == 1) {
-			e.Requests[e.Floor][BT_HallDown] = 0
+		if !requests_above(*e) && !(e.Requests[e.Floor][BT_HallUp] == true) {
+			e.Requests[e.Floor][BT_HallDown] = false
 		}
-		e.Requests[e.Floor][BT_HallUp] = 0
+		e.Requests[e.Floor][BT_HallUp] = false
 
 	case MD_Down:
-		if !requests_below(*e) && !(e.Requests[e.Floor][BT_HallDown] == 1) {
-			e.Requests[e.Floor][BT_HallUp] = 0
+		if !requests_below(*e) && !(e.Requests[e.Floor][BT_HallDown] == true) {
+			e.Requests[e.Floor][BT_HallUp] = false
 		}
-		e.Requests[e.Floor][BT_HallDown] = 0
+		e.Requests[e.Floor][BT_HallDown] = false
 
 	default:
-		e.Requests[e.Floor][BT_HallUp] = 0
-		e.Requests[e.Floor][BT_HallDown] = 0
+		e.Requests[e.Floor][BT_HallUp] = false
+		e.Requests[e.Floor][BT_HallDown] = false
 	}
 
 }
@@ -113,12 +113,12 @@ func requests_shouldClearImmediately(e *Elevator, Buttonevent ButtonEvent) bool 
 	switch e.Dirn {
 
 	case MD_Up:
-		if Buttonevent.Floor == e.Floor && (Buttonevent.Button == BT_HallUp || Buttonevent.Button == BT_Cab){
+		if Buttonevent.Floor == e.Floor && (Buttonevent.Button == BT_HallUp || Buttonevent.Button == BT_Cab) {
 			return true
 		}
 
 	case MD_Down:
-		if Buttonevent.Floor == e.Floor && (Buttonevent.Button == BT_HallDown || Buttonevent.Button == BT_Cab){
+		if Buttonevent.Floor == e.Floor && (Buttonevent.Button == BT_HallDown || Buttonevent.Button == BT_Cab) {
 			return true
 		}
 
