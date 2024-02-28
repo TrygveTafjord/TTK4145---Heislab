@@ -20,8 +20,8 @@ func main() {
 	Timer_ch := make(chan bool, 5)
 
 
-	infoUpdate_ch:= make(chan network.Msg)
-	info_Recieved_ch:= make(chan network.Msg)
+	infoUpdate_ch:= make(chan elevator.Elevator)
+	info_Recieved_ch:= make(chan elevator.Elevator)
 	Peer_update_ch := make(chan string)
 
 
@@ -43,7 +43,7 @@ func main() {
 	}
 
 
-	e := network.Msg{"Ole er ikke pedo", 5, true,69, elevator.MD_Down, Requests, elevator.EB_DoorOpen}
+	e := elevator.Elevator{"Ole er ikke pedo", 5,69, elevator.MD_Down, Requests, elevator.EB_DoorOpen,0.5}
 
 	for {
 		infoUpdate_ch <- e
