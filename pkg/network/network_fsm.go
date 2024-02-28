@@ -8,7 +8,7 @@ import (
 	"project.com/pkg/elevator"
 )
 
-func Network_fsm(infoUpdate chan elevator.Elevator, Send chan elevator.Elevator, UpdatePeers chan string) {
+func Network_fsm(infoUpdate chan elevator.Elevator, external_info chan elevator.Elevator, UpdatePeers chan string) {
 
 	Requests := [4][3]bool{
 		{true, true, true},
@@ -38,7 +38,7 @@ func Network_fsm(infoUpdate chan elevator.Elevator, Send chan elevator.Elevator,
 		for {
 			periodicMsg.Completed_Order_Counter++
 			networkTx <- periodicMsg
-			time.Sleep(2 * time.Second)
+			time.Sleep(5 * time.Second)
 		}
 	}()
 
@@ -53,12 +53,11 @@ func Network_fsm(infoUpdate chan elevator.Elevator, Send chan elevator.Elevator,
 
 		case a := <-networkRx:
 			fmt.Printf("Received: %#v\n", a)
-			//send_to_infobank()
+			external_info <- a
 
 		case i := <-infoUpdate:
 			periodicMsg = i
 			networkTx <- i
 		}
 	}
-
 }
