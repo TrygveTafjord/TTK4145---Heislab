@@ -36,7 +36,7 @@ func Network_fsm(infoUpdate chan elevator.Elevator, external_info chan elevator.
 	go func() {
 
 		for {
-			periodicMsg.Completed_Order_Counter++
+			periodicMsg.Completed_order_counter++
 			networkTx <- periodicMsg
 			time.Sleep(5 * time.Second)
 		}
