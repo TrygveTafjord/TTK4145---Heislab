@@ -6,22 +6,15 @@ import (
 	"os/exec"
 )
 
-func HRA_fsm (chan assigner_ch ){
-	for {
-		select
-	case: 
-	}
-}
+func HallRequestAssigner(jsonBytes []byte) (output map[string][][2]bool) {
 
-func HallRequestAssigner(jsonBytes []byte) (output map[string][][2]bool){
-	
 	ret, err := exec.Command("./hall_request_assigner", "-i", string(jsonBytes)).CombinedOutput()
 	if err != nil {
 		fmt.Println("exec.Command error: ", err)
 		fmt.Println(string(ret))
 		return
 	}
-	
+
 	output = make(map[string][][2]bool)
 
 	err = json.Unmarshal(ret, &output)
@@ -33,4 +26,4 @@ func HallRequestAssigner(jsonBytes []byte) (output map[string][][2]bool){
 	return output
 }
 
-//for testing purposes (paste in main): 
+//for testing purposes (paste in main):
