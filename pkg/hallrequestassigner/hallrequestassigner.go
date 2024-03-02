@@ -6,12 +6,12 @@ import (
 	"project.com/pkg/elevator"
 )
 
-//assuming: [up, down, cab] in the 4x3 matrix that is requestst
+//assuming: [up, down, cab] in the 4x3 matrix that is requestst 
 
-func AssignHallRequests(newAssignments_ch chan([4][2]bool), elevatorList []elevator.Elevator){
+func AssignHallRequests(newAssignments_ch chan([4][2]bool), elevatorList []elevator.Elevator)( map[string][4][2]bool){
 	JSON := CreateJSON(elevatorList...)
 	newAssignments := HallRequestAssigner(JSON)
-	newAssignments_ch <- newAssignments["id_1"]
+	return newAssignments
 }
 
 
