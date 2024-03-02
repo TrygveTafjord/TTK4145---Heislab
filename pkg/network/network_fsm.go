@@ -8,7 +8,7 @@ import (
 	"project.com/pkg/elevator"
 )
 
-func Network_fsm(infoUpdate chan elevator.Elevator, external_info chan elevator.Elevator, UpdatePeers chan string) {
+func Network_fsm(infoUpdate chan elevator.Elevator, external_info chan elevator.Elevator, UpdatePeers chan PeerUpdate) {
 
 	Requests := [4][3]bool{
 		{true, true, true},
@@ -46,6 +46,7 @@ func Network_fsm(infoUpdate chan elevator.Elevator, external_info chan elevator.
 	for {
 		select {
 		case p := <-peerUpdateCh:
+			UpdatePeers <- p
 			fmt.Printf("Peer update:\n")
 			fmt.Printf("  Peers:    %q\n", p.Peers)
 			fmt.Printf("  New:      %q\n", p.New)

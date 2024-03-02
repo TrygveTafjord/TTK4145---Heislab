@@ -6,6 +6,13 @@ import (
 	"os/exec"
 )
 
+func HRA_fsm (chan assigner_ch ){
+	for {
+		select
+	case: 
+	}
+}
+
 func HallRequestAssigner(jsonBytes []byte) (output map[string][][2]bool){
 	
 	ret, err := exec.Command("./hall_request_assigner", "-i", string(jsonBytes)).CombinedOutput()

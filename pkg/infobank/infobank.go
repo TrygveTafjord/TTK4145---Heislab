@@ -10,7 +10,11 @@ import (
 
 var confirmOtherNodesTime float64 = 2
 
-func Infobank_FSM(newStatus_ch chan elevator.Elevator, infoUpdate_ch chan elevator.Elevator, externalInfo chan elevator.Elevator, peerUpdate_ch chan network.PeerUpdate, assigner_ch chan map[string]elevator.Elevator) {
+func Infobank_FSM(newStatus_ch chan elevator.Elevator,
+				 infoUpdate_ch chan elevator.Elevator,
+				 externalInfo chan elevator.Elevator,
+				 peerUpdate_ch chan network.PeerUpdate,
+				 assigner_ch chan map[string]elevator.Elevator) {
 	elevatorList := make(map[string]elevator.Elevator)
 	elevatorTimes := make(map[string]float64)
 	this_elevator := new(elevator.Elevator)
