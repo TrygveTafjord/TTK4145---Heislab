@@ -1,27 +1,24 @@
 package elevator
 
 import (
-	"fmt"
 	"project.com/pkg/timer"
 )
 
-func FSM(Button_ch chan ButtonEvent, Floor_sensor_ch chan int, Stop_button_ch chan bool, Obstruction_ch chan bool, timerFinished chan bool) {
-	ElevatorPtr := new(Elevator)
+func FSM(button_ch chan ButtonEvent, floorSensor_ch chan int, stopButton_ch chan bool, obstruction_ch chan bool, timerFinished chan bool) {
+	elevatorPtr := new(Elevator)
 
 	for {
 		select {
-		case Buttonevent := <-Button_ch:
-			fsmButtonPress(Buttonevent, ElevatorPtr, timerFinished)
-		case Newfloor := <-Floor_sensor_ch:
-			fsmOnFloorArrival(ElevatorPtr, Newfloor, timerFinished)
-		case <-Stop_button_ch:
-			HandleStopButtonPressed(ElevatorPtr)
+		case buttonevent := <-button_ch:
+			fsmButtonPress(buttonevent, elevatorPtr, timerFinished)
+		case newFloor := <-floorSensor_ch:
+			fsmOnFloorArrival(elevatorPtr, newFloor, timerFinished)
+		case <-stopButton_ch:
+			HandleStopButtonPressed(elevatorPtr)
 			//set state stopped
-			//case Obstruction := <-Obstruction_ch:
+			//case Obstruction := <-obstruction_ch: gutta
 		case <-timerFinished:
-			fmt.Print("It happened")
-			HandleDeparture(ElevatorPtr)
-
+			HandleDeparture(elevatorPtr)
 		}
 	}
 }
@@ -51,11 +48,10 @@ func fsmOnFloorArrival(e *Elevator, newFloor int, timerFinished chan bool) {
 	SetFloorIndicator(newFloor)
 	switch e.Behaviour {
 	case EB_Moving:
-		if requests_shouldStop(*e) { // ----------- Sjekker i køssystem om vi skal stoppe
+		if requestShouldStop(*e) {
 			SetMotorDirection(MD_Stop)
 			SetDoorOpenLamp(true)
-			requests_clearAtCurrentFloor(e) // ---------- Ber om at denne etasjen fjernes fra køer
-			//timer.Timer_start(3)  //sett på en watchdog timer som skriver til kanal
+			requests_clearAtCurrentFloor(e)
 			go timer.Run_timer(3, timerFinished)
 			e.Behaviour = EB_DoorOpen
 			setAllLights(e)
@@ -64,59 +60,56 @@ func fsmOnFloorArrival(e *Elevator, newFloor int, timerFinished chan bool) {
 
 }
 
-func fsmButtonPress(Buttonevent ButtonEvent, elev *Elevator, timerFinished chan bool) {
+func fsmButtonPress(buttonEvent ButtonEvent, e *Elevator, timerFinished chan bool) {
 
-	switch elev.Behaviour {
+	switch e.Behaviour {
 
 	case EB_DoorOpen:
 
-		if requests_shouldClearImmediately(elev, Buttonevent) {
+		if requests_shouldClearImmediately(e, buttonEvent) {
 			go timer.Run_timer(3, timerFinished)
 		} else {
-			elev.Requests[Buttonevent.Floor][Buttonevent.Button] = true
+			e.Requests[buttonEvent.Floor][buttonEvent.Button] = true
 		}
 
 	case EB_Moving:
-		elev.Requests[Buttonevent.Floor][Buttonevent.Button] = true
+		e.Requests[buttonEvent.Floor][buttonEvent.Button] = true
 
 	case EB_Idle:
-		elev.Requests[Buttonevent.Floor][Buttonevent.Button] = true
-		elev.Dirn, elev.Behaviour = GetDirectionAndBehaviour(elev)
+		e.Requests[buttonEvent.Floor][buttonEvent.Button] = true
+		e.Dirn, e.Behaviour = GetDirectionAndBehaviour(e)
 
-		switch elev.Behaviour {
+		switch e.Behaviour {
 
 		case EB_DoorOpen:
 			SetDoorOpenLamp(true)
 			go timer.Run_timer(3, timerFinished)
-			requests_clearAtCurrentFloor(elev)
+			requests_clearAtCurrentFloor(e)
 
 		case EB_Moving:
-			SetMotorDirection(elev.Dirn)
+			SetMotorDirection(e.Dirn)
 		}
 	case EB_Stopped:
 	}
-	setAllLights(elev)
+	setAllLights(e)
 
 }
 
 func HandleStopButtonPressed(e *Elevator) {
-	//stop motor and consider opening door
 	switch e.Floor {
 	case -1:
-		//stop motor
 		SetMotorDirection(0)
 	default:
 		SetMotorDirection(0)
 		SetDoorOpenLamp(true)
 	}
-	//set state stopped
 	e.Behaviour = EB_Stopped
 }
 
 func setAllLights(e *Elevator) {
 	for floor := 0; floor < N_FLOORS; floor++ {
 		for btn := 0; btn < N_BUTTONS; btn++ {
-			SetButtonLamp(ButtonType(btn), floor, e.Requests[floor][btn] == true) //Ops
+			SetButtonLamp(ButtonType(btn), floor, e.Requests[floor][btn])
 		}
 	}
 }
