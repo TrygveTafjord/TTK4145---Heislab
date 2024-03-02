@@ -23,7 +23,7 @@ func main() {
 	assigner_ch := make(chan map[string]elevator.Elevator, 10)
 	newStatus_ch := make(chan elevator.Elevator, 10)
 
-	newAssignments_ch := make(chan [][]bool)
+	newAssignments_ch := make(chan [elevator.N_FLOORS][elevator.N_BUTTONS - 1]bool)
 
 	go elevator.PollFloorSensor(floorSensor_ch)
 	go elevator.PollButtons(button_ch)
@@ -34,7 +34,7 @@ func main() {
 
 	go network.Network_fsm(infoUpdate_ch, infoRecieved_ch, peerUpdate_ch)
 
-	go infobank.Infobank_FSM(newStatus_ch, infoUpdate_ch, infoRecieved_ch, peerUpdate_ch, assigner_ch)
+	go infobank.Infobank_FSM(button_ch, newStatus_ch, infoUpdate_ch, infoRecieved_ch, peerUpdate_ch, assigner_ch)
 
 	Requests := [4][3]bool{
 		{true, true, true},

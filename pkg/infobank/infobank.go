@@ -10,25 +10,34 @@ import (
 
 var confirmOtherNodesTime float64 = 2
 
-func Infobank_FSM(newStatus_ch chan elevator.Elevator,
-				 infoUpdate_ch chan elevator.Elevator,
-				 externalInfo chan elevator.Elevator,
-				 peerUpdate_ch chan network.PeerUpdate,
-				 assigner_ch chan map[string]elevator.Elevator) {
+func Infobank_FSM(
+	button_ch chan elevator.ButtonEvent,
+	newStatus_ch chan elevator.Elevator,
+	infoUpdate_ch chan elevator.Elevator,
+	externalInfo chan elevator.Elevator,
+	peerUpdate_ch chan network.PeerUpdate,
+	assigner_ch chan map[string]elevator.Elevator) {
+
 	elevatorList := make(map[string]elevator.Elevator)
 	elevatorTimes := make(map[string]float64)
-	this_elevator := new(elevator.Elevator)
+	thisElevator := new(elevator.Elevator)
 
 	for {
 		select {
+		case btn := <-button_ch:
+			thisElevator.Requests[btn.Floor][btn.Button] = true
+			elevatorList[thisElevator.Id] = *thisElevator
+			infoUpdate_ch <- elevatorList[thisElevator.Id]
+			//Assigner
+
 		case this := <-newStatus_ch:
 			elevatorList[this.Id] = this
 			infoUpdate_ch <- this
 			assigner_ch <- elevatorList
-			*this_elevator = this
+			*thisElevator = this
 
 		case external := <-externalInfo:
-			if external.Completed_order_counter == this_elevator.Completed_order_counter {
+			if external.Completed_order_counter == thisElevator.Completed_order_counter {
 				//Her må request synkroniseres på en eller annen måte
 			} else {
 				elevatorList[external.Id] = external
@@ -51,7 +60,7 @@ func Infobank_FSM(newStatus_ch chan elevator.Elevator,
 		}
 
 		for {
-			infoUpdate_ch <- *this_elevator
+			infoUpdate_ch <- *thisElevator
 			currentTime := timer.Get_wall_time()
 
 			for id, Times := range elevatorTimes {
