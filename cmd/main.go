@@ -15,7 +15,7 @@ func main() {
 	floorSensor_ch := make(chan int)
 	stopButton_ch := make(chan bool)
 	obstruction_ch := make(chan bool)
-	timer_ch := make(chan bool, 5)
+  timer_ch := make(chan bool, 5)
 
 	infoUpdate_ch := make(chan elevator.Elevator, 10)
 	infoRecieved_ch := make(chan elevator.Elevator, 10)
@@ -42,6 +42,6 @@ func main() {
 	for {
 		infoUpdate_ch <- e
 		time.Sleep(2000 * time.Millisecond)
-	}
+	}*/
 
 }
