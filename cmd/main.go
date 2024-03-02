@@ -2,14 +2,17 @@ package main
 
 import (
 	"fmt"
-	"time"
+	//"time"
 
 	"project.com/pkg/elevator"
-	"project.com/pkg/network"
+	//"project.com/pkg/network"
+	"project.com/pkg/hallrequestassigner"
 )
 
 func main() {
-	fmt.Printf("ole, men øverst ")
+	
+	
+	/*fmt.Printf("ole, men øverst ")
 	elevator.Init("localhost:15657", 4)
 	fmt.Printf("ole ")
 
@@ -48,6 +51,6 @@ func main() {
 	for {
 		infoUpdate_ch <- e
 		time.Sleep(2000 * time.Millisecond)
-	}
+	}*/
 
 }
