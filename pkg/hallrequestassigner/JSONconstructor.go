@@ -9,66 +9,60 @@ import (
 
 //assuming: [up, down, cab] in the 4x3 matrix that is requestst
 
-func CreateStateMap(e elevator.Elevator) (states map[string]interface{}) {
-	var direction string
-	var behaviour string
-	var floor int
-	var cabRequests []bool
-	//add hallrequestst at a later point - that is common for all elevators, this function is for individual elevators
-
-	switch e.Dirn {
-	case elevator.MD_Up:
-		direction = "up"
-	case elevator.MD_Down:
-		direction = "down"
-	case elevator.MD_Stop:
-		direction = "stop"
-	}
-
-	switch e.Behaviour {
-	case elevator.EB_DoorOpen:
-		behaviour = "doorOpen"
-	case elevator.EB_Idle:
-		behaviour = "idle"
-	case elevator.EB_Moving:
-		behaviour = "moving"
-	}
-
-	//cab requests
-	for _, floor := range e.Requests {
-		cabRequests = append(cabRequests, floor[2])
-	}
-
-	floor = e.Floor //NB has to be non-negative - is it always?
-
-	stateMap := map[string]interface{}{
-		"behaviour":   behaviour,
-		"floor":       floor,
-		"direction":   direction,
-		"cabRequests": cabRequests,
-	}
-
-	return stateMap
-
+func AssignHallRequests(newAssignments_ch chan ([4][2]bool), elevatorList []elevator.Elevator) map[string][4][2]bool {
+	JSON := CreateJSON(elevatorList...)
+	newAssignments := HallRequestAssigner(JSON)
+	return newAssignments
 }
 
-func CreateMasterJSON(e elevator.Elevator,
-	e1JSON map[string]interface{},
-	e2JSON map[string]interface{},
-	e3JSON map[string]interface{}) (JSON []byte) {
+func CreateJSON(elevators ...elevator.Elevator) []byte {
+	var stateMaps []map[string]interface{}
+	hallRequests := generateHallRequests(elevators)
 
-	var hallRequests [][]bool
-	for _, floor := range e.Requests {
-		hallRequests = append(hallRequests, floor[:2])
+	for _, e := range elevators {
+		var direction string
+		var behaviour string
+		var cabRequests []bool
+
+		switch e.Dirn {
+		case elevator.MD_Up:
+			direction = "up"
+		case elevator.MD_Down:
+			direction = "down"
+		case elevator.MD_Stop:
+			direction = "stop"
+		}
+
+		switch e.Behaviour {
+		case elevator.EB_DoorOpen:
+			behaviour = "doorOpen"
+		case elevator.EB_Idle:
+			behaviour = "idle"
+		case elevator.EB_Moving:
+			behaviour = "moving"
+		}
+
+		// Cab requests
+		for _, request := range e.Requests {
+			cabRequests = append(cabRequests, request[2])
+		}
+
+		floor := e.Floor // Assuming floor is non-negative.
+
+		stateMap := map[string]interface{}{
+			"behaviour":   behaviour,
+			"floor":       floor,
+			"direction":   direction,
+			"cabRequests": cabRequests,
+		}
+
+		stateMaps = append(stateMaps, stateMap)
 	}
-	//currently, the loop above just gets the hallreq info from one of the elevators
-	//at a later point, this should probably be changed to a list of the hallreqs from the infobank
-	//should be fine for now, the assumption is that they all have the same info anyway
 
-	auxJSONMap := map[string]interface{}{
-		"id_1": e1JSON,
-		"id_2": e2JSON,
-		"id_3": e3JSON,
+	auxJSONMap := make(map[string]interface{})
+
+	for i, stateMaps := range stateMaps {
+		auxJSONMap[fmt.Sprintf("id_%d", i+1)] = stateMaps
 	}
 
 	masterJSONMap := map[string]interface{}{
@@ -79,11 +73,24 @@ func CreateMasterJSON(e elevator.Elevator,
 	JSON, err := json.Marshal(masterJSONMap)
 	if err != nil {
 		fmt.Printf("JSON marshaling failed: %s", err)
+		return nil
 	}
 
 	return JSON
 }
 
-// func updateLocalInfoFromJSON(){
+func generateHallRequests(elevators []elevator.Elevator) (resultMatrix [4][2]bool) {
 
-// }
+	for i := 0; i < 4; i++ {
+		for j := 0; j < 2; j++ {
+			for _, elevator := range elevators {
+				resultMatrix[i][j] = resultMatrix[i][j] || elevator.Requests[i][j]
+				if resultMatrix[i][j] {
+					break
+				}
+			}
+		}
+	}
+
+	return resultMatrix
+}
