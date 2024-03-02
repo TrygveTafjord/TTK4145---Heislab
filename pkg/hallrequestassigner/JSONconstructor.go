@@ -1,4 +1,4 @@
-package hallreqass
+package hallrequestassigner
 
 import (
 	"encoding/json"
@@ -6,10 +6,6 @@ import (
 
 	"project.com/pkg/elevator"
 )
-
-// func updateForeignElevs(foreignElevator elevator.Elevator){
-
-// }
 
 //assuming: [up, down, cab] in the 4x3 matrix that is requestst
 
