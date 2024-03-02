@@ -7,7 +7,7 @@ import (
 	"project.com/pkg/timer"
 
 )
-var confirmOtherNodesTime
+var confirmOtherNodesTime float64 = 2
 
 func Infobank_FSM(newStatus_ch chan Elevator, infoUpdate_ch chan Elevator, externalInfo chan Elevator, peerUpdate_ch chan network.PeerUpdate, assigner_ch chan map[string]Elevator) {
 	elevatorList := make(map[string]Elevator)
@@ -50,9 +50,15 @@ func Infobank_FSM(newStatus_ch chan Elevator, infoUpdate_ch chan Elevator, exter
 
 		for {
 			infoUpdate_ch <- *this_elevator
+			currentTime := timer.Get_wall_time()
+			
+			for id, Times := range elevatorTimes {
+				if Times < currentTime {
+					delete(elevatorList, id)
+					delete(elevatorTimes,id)
+				}
+			}
 			time.Sleep(500 * time.Millisecond)
 		}
 	}
-
-
 }
