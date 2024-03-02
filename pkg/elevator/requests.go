@@ -14,7 +14,7 @@ func requestsAbove(e Elevator) bool {
 func requestsBelow(e Elevator) bool {
 	for flr := 0; flr < e.Floor; flr++ {
 		for btn := 0; btn < N_BUTTONS; btn++ {
-			if e.Requests[flr][btn] {
+      if e.Requests[flr][btn] {
 				return true
 			}
 		}
@@ -34,7 +34,7 @@ func requestsHere(e Elevator) bool {
 
 func requestShouldStop(e Elevator) bool {
 	switch e.Dirn {
-	case MD_Down:
+  case MD_Down:
 		return (e.Requests[e.Floor][BT_HallDown] ||
 			e.Requests[e.Floor][BT_Cab] ||
 			!requestsBelow(e))

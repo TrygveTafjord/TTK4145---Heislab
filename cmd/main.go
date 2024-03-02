@@ -2,14 +2,15 @@ package main
 
 import (
 	"time"
+	"fmt"
 
 	"project.com/pkg/elevator"
+	"project.com/pkg/hallrequestassigner"
 	"project.com/pkg/network"
 )
 
 func main() {
-	elevator.Init("localhost:15657", 4)
-
+	//elevator.Init("localhost:15657", 4)
 	button_ch := make(chan elevator.ButtonEvent)
 	floorSensor_ch := make(chan int)
 	stopButton_ch := make(chan bool)
