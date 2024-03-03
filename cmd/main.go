@@ -19,7 +19,7 @@ func main() {
 	
 	infoUpdate_ch := make(chan elevator.Elevator, 10)
 	infoRecieved_ch := make(chan elevator.Elevator, 10)
-	peerUpdate_ch := make(chan string, 10)
+	peerUpdate_ch := make(chan network.PeerUpdate, 10)
 
 	go elevator.PollFloorSensor(floorSensor_ch)
 	go elevator.PollButtons(button_ch)
