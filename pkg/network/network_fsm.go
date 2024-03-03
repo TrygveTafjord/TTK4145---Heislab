@@ -61,4 +61,6 @@ func Network_fsm(infoUpdate chan elevator.Elevator, external_info chan elevator.
 			networkTx <- i
 		}
 	}
+
+	
 }

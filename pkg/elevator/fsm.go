@@ -1,31 +1,46 @@
 package elevator
 
 import (
+	"fmt"
+
 	"project.com/pkg/timer"
 )
 
-func FSM(newAssignments_ch chan Elevator,
-	floorSensor_ch chan int,
-	stopButton_ch chan bool,
-	obstruction_ch chan bool,
-	timerFinished chan bool,
-	clearedBtn_ch chan Elevator) {
+func FSM(elevStatusUpdate_ch chan Elevator) {
 
-	elevatorPtr := new(Elevator)
+	floorSensor_ch := make(chan int)
+	stopButton_ch := make(chan bool)
+	obstruction_ch := make(chan bool)
+	timer_ch := make(chan bool)
+
+	go PollFloorSensor(floorSensor_ch)
+	go PollStopButton(stopButton_ch)
+	go PollObstructionSwitch(obstruction_ch)
+
+	elevator := new(Elevator)
+
+	initElevator(elevator, floorSensor_ch)
+
+	elevStatusUpdate_ch <- *elevator
 
 	for {
 		select {
-		case newAssignments := <-newAssignments_ch:
-			*elevatorPtr = newAssignments
-			fsmNewAssignments(elevatorPtr, timerFinished)
+
+		case newElev := <-elevStatusUpdate_ch:
+			elevator.Requests = newElev.Requests
+
+			fsmNewAssignments(elevator, timer_ch)
+			elevStatusUpdate_ch <- *elevator
+
 		case newFloor := <-floorSensor_ch:
-			fsmOnFloorArrival(elevatorPtr, newFloor, timerFinished, clearedBtn_ch)
+			fsmOnFloorArrival(elevator, newFloor, timer_ch, elevStatusUpdate_ch)
+			elevStatusUpdate_ch <- *elevator
+
 		case <-stopButton_ch:
-			HandleStopButtonPressed(elevatorPtr)
-			//elevatorPtr.Behaviour = EB_Stopped
-			//case Obstruction := <-obstruction_ch:
-		case <-timerFinished:
-			HandleDeparture(elevatorPtr)
+			HandleStopButtonPressed(elevator)
+
+		case <-timer_ch:
+			HandleDeparture(elevator)
 		}
 	}
 }
@@ -48,7 +63,21 @@ func HandleDeparture(e *Elevator) {
 	}
 }
 
-func fsmOnFloorArrival(e *Elevator, newFloor int, timerFinished chan bool, newElevState_ch chan Elevator) {
+func initElevator(e *Elevator, floorSensor_ch chan int) {
+	fmt.Println("Initializing elevator at floor %v \n", e.Floor)
+	for e.Floor == 0 {
+		SetMotorDirection(MD_Down)
+		floor := <-floorSensor_ch
+		if floor != 0 {
+			SetMotorDirection(MD_Stop)
+			e.Floor = floor
+			e.Dirn = MD_Stop
+			e.Behaviour = EB_Idle
+		}
+	}
+}
+
+func fsmOnFloorArrival(e *Elevator, newFloor int, timer_ch chan bool, elevStatusUpdate_ch chan Elevator) {
 
 	e.Floor = newFloor
 	SetFloorIndicator(newFloor)
@@ -58,15 +87,18 @@ func fsmOnFloorArrival(e *Elevator, newFloor int, timerFinished chan bool, newEl
 			SetMotorDirection(MD_Stop)
 			SetDoorOpenLamp(true)
 			requests_clearAtCurrentFloor(e)
-			newElevState_ch <- *e
-			go timer.Run_timer(3, timerFinished)
+			go timer.Run_timer(3, timer_ch)
 			e.Behaviour = EB_DoorOpen
 			setAllLights(e)
 		}
 	}
 }
 
-func fsmNewAssignments(e *Elevator, timerFinished chan bool) {
+func fsmNewAssignments(e *Elevator, timer_ch chan bool) {
+
+	if e.Behaviour == EB_DoorOpen && requests_shouldClearImmediately(*e) {
+		go timer.Run_timer(3, timer_ch)
+	}
 
 	e.Dirn, e.Behaviour = GetDirectionAndBehaviour(e)
 
@@ -74,7 +106,7 @@ func fsmNewAssignments(e *Elevator, timerFinished chan bool) {
 
 	case EB_DoorOpen:
 		SetDoorOpenLamp(true)
-		go timer.Run_timer(3, timerFinished)
+		go timer.Run_timer(3, timer_ch)
 		requests_clearAtCurrentFloor(e)
 
 	case EB_Moving:

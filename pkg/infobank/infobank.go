@@ -6,87 +6,52 @@ import (
 	"project.com/pkg/elevator"
 	"project.com/pkg/hallrequestassigner"
 	"project.com/pkg/network"
-	"project.com/pkg/timer"
 )
 
-var confirmOtherNodesTime float64 = 2
-
 func Infobank_FSM(
-	button_ch chan elevator.ButtonEvent,
-	newStatus_ch chan elevator.Elevator,
-	infoUpdate_ch chan elevator.Elevator,
-	externalInfo chan elevator.Elevator,
-	peerUpdate_ch chan network.PeerUpdate,
-	assigner_ch chan map[string][elevator.N_FLOORS][elevator.N_BUTTONS - 1]bool) {
+	elevStatusUpdate_ch chan elevator.Elevator,
+) {
 
-	elevatorList := make(map[string]elevator.Elevator)
-	elevatorTimes := make(map[string]float64)
-	thisElevator := new(elevator.Elevator)
+	button_ch := make(chan elevator.ButtonEvent, 10)
+	go elevator.PollButtons(button_ch)
 
+	elevatorMap := make(map[string]elevator.Elevator)
+	var thisElevator elevator.Elevator
+
+	//wait for initial status update (potential bug: what if no status update is received?)
+	thisElevator = <-elevStatusUpdate_ch
+
+	Ip, e := network.LocalIP()
+	if e != nil {
+		fmt.Printf("could not get IP")
+	}
+
+	thisElevator.Id = Ip
+	elevatorMap[thisElevator.Id] = thisElevator
+
+	numBtnPresses := 0
 	for {
 		select {
 		case btn := <-button_ch:
-			fmt.Printf("\n registrert knappetrykk \n")
+			numBtnPresses++
 			thisElevator.Requests[btn.Floor][btn.Button] = true
-			elevatorList[thisElevator.Id] = *thisElevator
-			infoUpdate_ch <- elevatorList[thisElevator.Id]
-			hallrequestassigner.AssignHallRequests(assigner_ch, elevatorList)
+			elevatorMap[thisElevator.Id] = thisElevator
+			var newAssignmentsMap map[string][4][2]bool = hallrequestassigner.AssignHallRequests(elevatorMap)
 
-		case newState := <-newStatus_ch:
+			for i := 0; i < elevator.N_FLOORS; i++ {
+				for j := 0; j < elevator.N_BUTTONS-1; j++ {
+					thisElevator.Requests[i][j] = newAssignmentsMap["id_1"][i][j] // endre "id_1" til "thisElevator.Id" men i tørr faen ikke røre Ole sin kode
+				}
+			}
+			elevStatusUpdate_ch <- thisElevator
 
+		case newState := <-elevStatusUpdate_ch:
 			if newState.Requests != thisElevator.Requests {
-				fmt.Printf("\n we get here \n")
 				newState.OrderClearedCounter++
-
 			}
-
-			elevatorList[newState.Id] = newState
-			infoUpdate_ch <- newState // Lag funksjonalitet for å ta imot counter
-
-			hallrequestassigner.AssignHallRequests(assigner_ch, elevatorList)
-			*thisElevator = newState
-
-		case external := <-externalInfo:
-			fmt.Printf("\n mottatt info \n")
-			if external.OrderClearedCounter == thisElevator.OrderClearedCounter {
-				//Her må request synkroniseres på en eller annen måte
-			} else {
-				elevatorList[external.Id] = external
-
-			}
-			hallrequestassigner.AssignHallRequests(assigner_ch, elevatorList)
-			elevatorTimes[external.Id] = timer.Get_wall_time() + confirmOtherNodesTime
-
-		case peerUpdate := <-peerUpdate_ch:
-			fmt.Printf("\n mottatt peer update \n")
-
-			if len(peerUpdate.Lost) != 0 {
-				for i := 0; i < len(peerUpdate.Lost); i++ {
-					delete(elevatorList, peerUpdate.Lost[i])
-					delete(elevatorTimes, peerUpdate.Lost[i])
-				}
-			} else if peerUpdate.New != "" {
-				elevatorList[peerUpdate.New] = *new(elevator.Elevator) //Her brytes kanskje noen lover
-				elevatorTimes[peerUpdate.New] = timer.Get_wall_time() + confirmOtherNodesTime
-			}
-			hallrequestassigner.AssignHallRequests(assigner_ch, elevatorList)
-			//case newAssignmentsMap := <-assigner_ch:
-			//do shit
-			//fmt.Print("im doing stuff because orders were reassigned")
-			//fmt.Printf("newAssignmentsMap: %v\n", newAssignmentsMap)
+			newState.Id = thisElevator.Id
+			elevatorMap[thisElevator.Id] = newState
+			thisElevator = newState
 		}
-
-		/* for {
-			infoUpdate_ch <- *thisElevator
-			//currentTime := timer.Get_wall_time()
-
-			 			for id, Times := range elevatorTimes {
-				if Times < currentTime {
-					delete(elevatorList, id)
-					delete(elevatorTimes, id)
-				}
-			}
-			time.Sleep(500 * time.Millisecond)
-		} */
 	}
 }
