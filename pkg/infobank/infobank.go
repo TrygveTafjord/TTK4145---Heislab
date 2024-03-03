@@ -2,7 +2,6 @@ package infobank
 
 import (
 	"fmt"
-	"time"
 
 	"project.com/pkg/elevator"
 	"project.com/pkg/hallrequestassigner"
@@ -27,23 +26,28 @@ func Infobank_FSM(
 	for {
 		select {
 		case btn := <-button_ch:
+			fmt.Printf("\n registrert knappetrykk \n")
 			thisElevator.Requests[btn.Floor][btn.Button] = true
 			elevatorList[thisElevator.Id] = *thisElevator
-			infoUpdate_ch <- elevatorList[thisElevator.Id]  
+			infoUpdate_ch <- elevatorList[thisElevator.Id]
 			hallrequestassigner.AssignHallRequests(assigner_ch, elevatorList)
 
 		case newState := <-newStatus_ch:
 
 			if newState.Requests != thisElevator.Requests {
+				fmt.Printf("\n we get here \n")
 				newState.OrderClearedCounter++
+
 			}
 
 			elevatorList[newState.Id] = newState
-			infoUpdate_ch <- newState  // Lag funksjonalitet for å ta imot counter
+			infoUpdate_ch <- newState // Lag funksjonalitet for å ta imot counter
+
 			hallrequestassigner.AssignHallRequests(assigner_ch, elevatorList)
 			*thisElevator = newState
 
 		case external := <-externalInfo:
+			fmt.Printf("\n mottatt info \n")
 			if external.OrderClearedCounter == thisElevator.OrderClearedCounter {
 				//Her må request synkroniseres på en eller annen måte
 			} else {
@@ -54,6 +58,8 @@ func Infobank_FSM(
 			elevatorTimes[external.Id] = timer.Get_wall_time() + confirmOtherNodesTime
 
 		case peerUpdate := <-peerUpdate_ch:
+			fmt.Printf("\n mottatt peer update \n")
+
 			if len(peerUpdate.Lost) != 0 {
 				for i := 0; i < len(peerUpdate.Lost); i++ {
 					delete(elevatorList, peerUpdate.Lost[i])
@@ -64,23 +70,23 @@ func Infobank_FSM(
 				elevatorTimes[peerUpdate.New] = timer.Get_wall_time() + confirmOtherNodesTime
 			}
 			hallrequestassigner.AssignHallRequests(assigner_ch, elevatorList)
-		case newAssignmentsMap := <- assigner_ch:
+			//case newAssignmentsMap := <-assigner_ch:
 			//do shit
-			fmt.Print("im doing stuff because orders were reassigned")
-			fmt.Printf("newAssignmentsMap: %v\n", newAssignmentsMap)
+			//fmt.Print("im doing stuff because orders were reassigned")
+			//fmt.Printf("newAssignmentsMap: %v\n", newAssignmentsMap)
 		}
 
-		for {
+		/* for {
 			infoUpdate_ch <- *thisElevator
-			currentTime := timer.Get_wall_time()
+			//currentTime := timer.Get_wall_time()
 
-			for id, Times := range elevatorTimes {
+			 			for id, Times := range elevatorTimes {
 				if Times < currentTime {
 					delete(elevatorList, id)
 					delete(elevatorTimes, id)
 				}
 			}
 			time.Sleep(500 * time.Millisecond)
-		}
+		} */
 	}
 }
