@@ -15,6 +15,7 @@ func main() {
 	stopButton_ch := make(chan bool)
 	obstruction_ch := make(chan bool)
 	timer_ch := make(chan bool, 5)
+	newElevState_ch := make(chan elevator.Elevator)
 
 	infoUpdate_ch := make(chan elevator.Elevator, 10)
 	infoRecieved_ch := make(chan elevator.Elevator, 10)
@@ -23,14 +24,14 @@ func main() {
 	assigner_ch := make(chan map[string]elevator.Elevator, 10)
 	newStatus_ch := make(chan elevator.Elevator, 10)
 
-	newAssignments_ch := make(chan [elevator.N_FLOORS][elevator.N_BUTTONS - 1]bool)
+	newAssignments_ch := make(chan elevator.Elevator)
 
 	go elevator.PollFloorSensor(floorSensor_ch)
 	go elevator.PollButtons(button_ch)
 	go elevator.PollStopButton(stopButton_ch)
 	go elevator.PollObstructionSwitch(obstruction_ch)
 
-	go elevator.FSM(newAssignments_ch, floorSensor_ch, stopButton_ch, obstruction_ch, timer_ch)
+	go elevator.FSM(newAssignments_ch, floorSensor_ch, stopButton_ch, obstruction_ch, timer_ch, newElevState_ch)
 
 	go network.Network_fsm(infoUpdate_ch, infoRecieved_ch, peerUpdate_ch)
 

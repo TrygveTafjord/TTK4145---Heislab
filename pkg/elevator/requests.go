@@ -87,6 +87,7 @@ func GetDirectionAndBehaviour(e *Elevator) (MotorDirection, ElevatorBehaviour) {
 func requests_clearAtCurrentFloor(e *Elevator) {
 
 	e.Requests[e.Floor][BT_Cab] = false
+
 	switch e.Dirn {
 
 	case MD_Up:
@@ -105,7 +106,6 @@ func requests_clearAtCurrentFloor(e *Elevator) {
 		e.Requests[e.Floor][BT_HallUp] = false
 		e.Requests[e.Floor][BT_HallDown] = false
 	}
-
 }
 
 func requests_shouldClearImmediately(e *Elevator, buttonevent ButtonEvent) bool {

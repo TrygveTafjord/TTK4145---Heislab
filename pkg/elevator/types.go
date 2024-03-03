@@ -16,7 +16,7 @@ const (
 
 type Elevator struct {
 	Id                      string
-	Completed_order_counter int
+	OrderClearedCounter     int
 	Floor                   int
 	Dirn                    MotorDirection
 	Requests                [N_FLOORS][N_BUTTONS]bool

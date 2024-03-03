@@ -9,10 +9,18 @@ import (
 
 //assuming: [up, down, cab] in the 4x3 matrix that is requestst
 
-func AssignHallRequests(newAssignments_ch chan ([4][2]bool), elevatorList []elevator.Elevator) map[string][4][2]bool {
+func AssignHallRequests(assigner_ch chan(map[string][elevator.N_FLOORS][elevator.N_BUTTONS - 1]bool), elevatorMap map[string]elevator.Elevator){
+	
+	
+	elevatorList := make([]elevator.Elevator, 0, len(elevatorMap))
+	
+	for _, v := range elevatorMap{
+		elevatorList = append(elevatorList, v)
+	}
+
 	JSON := CreateJSON(elevatorList...)
 	newAssignments := HallRequestAssigner(JSON)
-	return newAssignments
+	assigner_ch <- newAssignments
 }
 
 func CreateJSON(elevators ...elevator.Elevator) []byte {

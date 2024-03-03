@@ -4,20 +4,22 @@ import (
 	"project.com/pkg/timer"
 )
 
-func FSM(newAssignments_ch chan [N_FLOORS][N_BUTTONS - 1]bool,
+func FSM(newAssignments_ch chan Elevator,
 	floorSensor_ch chan int,
 	stopButton_ch chan bool,
 	obstruction_ch chan bool,
-	timerFinished chan bool) {
+	timerFinished chan bool,
+	clearedBtn_ch chan Elevator) {
 
 	elevatorPtr := new(Elevator)
 
 	for {
 		select {
 		case newAssignments := <-newAssignments_ch:
-			fsmNewAssignments(newAssignments, elevatorPtr, timerFinished)
+			*elevatorPtr = newAssignments
+			fsmNewAssignments(elevatorPtr, timerFinished)
 		case newFloor := <-floorSensor_ch:
-			fsmOnFloorArrival(elevatorPtr, newFloor, timerFinished)
+			fsmOnFloorArrival(elevatorPtr, newFloor, timerFinished, clearedBtn_ch)
 		case <-stopButton_ch:
 			HandleStopButtonPressed(elevatorPtr)
 			//elevatorPtr.Behaviour = EB_Stopped
@@ -46,7 +48,7 @@ func HandleDeparture(e *Elevator) {
 	}
 }
 
-func fsmOnFloorArrival(e *Elevator, newFloor int, timerFinished chan bool) {
+func fsmOnFloorArrival(e *Elevator, newFloor int, timerFinished chan bool, newElevState_ch chan Elevator) {
 
 	e.Floor = newFloor
 	SetFloorIndicator(newFloor)
@@ -56,7 +58,7 @@ func fsmOnFloorArrival(e *Elevator, newFloor int, timerFinished chan bool) {
 			SetMotorDirection(MD_Stop)
 			SetDoorOpenLamp(true)
 			requests_clearAtCurrentFloor(e)
-			//send til infobank at vi clearer request
+			newElevState_ch <- *e
 			go timer.Run_timer(3, timerFinished)
 			e.Behaviour = EB_DoorOpen
 			setAllLights(e)
@@ -64,62 +66,19 @@ func fsmOnFloorArrival(e *Elevator, newFloor int, timerFinished chan bool) {
 	}
 }
 
-func fsmButtonPress(buttonEvent ButtonEvent, e *Elevator, timerFinished chan bool) {
+func fsmNewAssignments(e *Elevator, timerFinished chan bool) {
+
+	e.Dirn, e.Behaviour = GetDirectionAndBehaviour(e)
 
 	switch e.Behaviour {
 
 	case EB_DoorOpen:
-
-		if requests_shouldClearImmediately(e, buttonEvent) {
-			go timer.Run_timer(3, timerFinished)
-		} else {
-			e.Requests[buttonEvent.Floor][buttonEvent.Button] = true
-		}
+		SetDoorOpenLamp(true)
+		go timer.Run_timer(3, timerFinished)
+		requests_clearAtCurrentFloor(e)
 
 	case EB_Moving:
-		e.Requests[buttonEvent.Floor][buttonEvent.Button] = true
-
-	case EB_Idle:
-		e.Requests[buttonEvent.Floor][buttonEvent.Button] = true
-		e.Dirn, e.Behaviour = GetDirectionAndBehaviour(e)
-
-		switch e.Behaviour {
-
-		case EB_DoorOpen:
-			SetDoorOpenLamp(true)
-			go timer.Run_timer(3, timerFinished)
-			requests_clearAtCurrentFloor(e)
-
-		case EB_Moving:
-			SetMotorDirection(e.Dirn)
-		}
-	case EB_Stopped:
-	}
-	setAllLights(e)
-
-}
-
-func fsmNewAssignments(newAssignments [N_FLOORS][N_BUTTONS - 1]bool, e *Elevator, timerFinished chan bool) {
-
-	for row := 0; row < N_FLOORS; row++ {
-		for col := 0; col < N_BUTTONS-1; col++ {
-			e.Requests[row][col] = newAssignments[row][col]
-		}
-	}
-
-	if e.Behaviour == EB_Idle {
-		e.Dirn, e.Behaviour = GetDirectionAndBehaviour(e)
-
-		switch e.Behaviour {
-
-		case EB_DoorOpen:
-			SetDoorOpenLamp(true)
-			go timer.Run_timer(3, timerFinished)
-			requests_clearAtCurrentFloor(e)
-
-		case EB_Moving:
-			SetMotorDirection(e.Dirn)
-		}
+		SetMotorDirection(e.Dirn)
 	}
 	setAllLights(e)
 }
