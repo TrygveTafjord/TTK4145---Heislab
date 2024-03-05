@@ -23,8 +23,8 @@ func AssignHallRequests(elevatorMap map[string]elevator.Elevator) map[string][4]
 }
 
 func CreateJSON(elevators ...elevator.Elevator) []byte {
-	var stateMaps []map[string]interface{}
 	hallRequests := generateHallRequests(elevators)
+	auxJSONMap := make(map[string]interface{})
 
 	for _, e := range elevators {
 		var direction string
@@ -63,13 +63,7 @@ func CreateJSON(elevators ...elevator.Elevator) []byte {
 			"cabRequests": cabRequests,
 		}
 
-		stateMaps = append(stateMaps, stateMap)
-	}
-
-	auxJSONMap := make(map[string]interface{})
-
-	for i, stateMaps := range stateMaps {
-		auxJSONMap[fmt.Sprintf("id_%d", i+1)] = stateMaps
+		auxJSONMap[e.Id] = stateMap
 	}
 
 	masterJSONMap := map[string]interface{}{
@@ -77,11 +71,14 @@ func CreateJSON(elevators ...elevator.Elevator) []byte {
 		"states":       auxJSONMap,
 	}
 
-	JSON, err := json.Marshal(masterJSONMap)
+	JSON, err := json.MarshalIndent(masterJSONMap, "", "    ") // "" as prefix and "    " (4 spaces) as indent
 	if err != nil {
 		fmt.Printf("JSON marshaling failed: %s", err)
 		return nil
 	}
+
+	// Print the nicely formatted JSON string
+	fmt.Println(string(JSON))
 
 	return JSON
 }

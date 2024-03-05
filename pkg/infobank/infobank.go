@@ -72,7 +72,7 @@ func Infobank_FSM(
 
 			for i := 0; i < elevator.N_FLOORS; i++ {
 				for j := 0; j < elevator.N_BUTTONS-1; j++ {
-					thisElevator.Requests[i][j] = newAssignmentsMap["id_1"][i][j] // endre "id_1" til "thisElevator.Id"
+					thisElevator.Requests[i][j] = newAssignmentsMap[thisElevator.Id][i][j] // endre "id_1" til "thisElevator.Id"
 				}
 			}
 			elevStatusUpdate_ch <- thisElevator
