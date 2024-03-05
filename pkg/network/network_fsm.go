@@ -39,6 +39,12 @@ func Network_fsm(networkUpdateTx_ch chan elevator.Elevator, networkUpdateRx_ch c
 				networkUpdateRx_ch <- a
 			}
 
+			if a.Id == id{
+				fmt.Printf("\n Dette er totalmatrisen vår ", a.GlobalLights)
+				fmt.Printf("\n Dette er lokalmatrisen vår ", a.Requests)
+
+			}
+
 		case i := <-networkUpdateTx_ch:
 			networkTx <- i
 		}

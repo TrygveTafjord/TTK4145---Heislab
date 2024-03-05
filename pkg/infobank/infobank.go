@@ -57,11 +57,11 @@ func Infobank_FSM(
 			networkUpdateTx_ch <- thisElevator
 
 		case recievedElevator := <-networkUpdateRx_ch:
+			fmt.Printf("Mottatt melding: \n")
 			if recievedElevator.OrderClearedCounter > thisElevator.OrderClearedCounter {
 				thisElevator = handleRecievedOrderCompleted(recievedElevator, thisElevator)
 
 			}
-			//siste endring
 
 			recievedElevator.GlobalLights = thisElevator.GlobalLights
 			elevatorMap[recievedElevator.Id] = recievedElevator
@@ -74,9 +74,9 @@ func Infobank_FSM(
 				}
 			}
 			elevStatusUpdate_ch <- thisElevator
-			for key, value := range newAssignmentsMap {
-				fmt.Printf(key, "Received: ", value, '\n')
-			}
+			//for key, value := range newAssignmentsMap {
+			//	fmt.Printf(key, "Received: ", value, '\n')
+			//}
 		}
 	}
 }

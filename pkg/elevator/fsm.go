@@ -1,7 +1,6 @@
 package elevator
 
 import (
-
 	"project.com/pkg/timer"
 )
 
@@ -31,7 +30,6 @@ func FSM(elevStatusUpdate_ch chan Elevator) {
 			setAllLights(elevator)
 
 			fsmNewAssignments(elevator, timer_ch)
-			elevStatusUpdate_ch <- *elevator
 
 		case newFloor := <-floorSensor_ch:
 			fsmOnFloorArrival(elevator, newFloor, timer_ch, elevStatusUpdate_ch)
