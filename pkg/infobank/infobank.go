@@ -57,15 +57,17 @@ func Infobank_FSM(
 			networkUpdateTx_ch <- thisElevator
 
 		case recievedElevator := <-networkUpdateRx_ch:
-		
+
 			if recievedElevator.OrderClearedCounter > thisElevator.OrderClearedCounter {
 				thisElevator = handleRecievedOrderCompleted(recievedElevator, thisElevator)
-
 			}
 
 			recievedElevator.GlobalLights = thisElevator.GlobalLights
+
 			elevatorMap[recievedElevator.Id] = recievedElevator
+
 			var newAssignmentsMap map[string][4][2]bool = hallrequestassigner.AssignHallRequests(elevatorMap)
+			
 			thisElevator.GlobalLights = setGlobalLights(newAssignmentsMap, thisElevator)
 
 			for i := 0; i < elevator.N_FLOORS; i++ {
@@ -74,10 +76,6 @@ func Infobank_FSM(
 				}
 			}
 			elevStatusUpdate_ch <- thisElevator
-			fmt.Printf("\n Vår totalmatrise ", thisElevator.GlobalLights)
-			for _, value := range newAssignmentsMap {
-				fmt.Printf("\n Utregnede matrise: ", value)
-			}
 		}
 	}
 }
