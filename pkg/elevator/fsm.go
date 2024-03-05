@@ -1,7 +1,6 @@
 package elevator
 
 import (
-	"fmt"
 
 	"project.com/pkg/timer"
 )
@@ -28,6 +27,8 @@ func FSM(elevStatusUpdate_ch chan Elevator) {
 
 		case newElev := <-elevStatusUpdate_ch:
 			elevator.Requests = newElev.Requests
+			elevator.GlobalLights = newElev.GlobalLights
+			setAllLights(elevator)
 
 			fsmNewAssignments(elevator, timer_ch)
 			elevStatusUpdate_ch <- *elevator
@@ -42,6 +43,7 @@ func FSM(elevStatusUpdate_ch chan Elevator) {
 		case <-timer_ch:
 			HandleDeparture(elevator)
 		}
+
 	}
 }
 
@@ -64,15 +66,25 @@ func HandleDeparture(e *Elevator) {
 }
 
 func initElevator(e *Elevator, floorSensor_ch chan int) {
-	fmt.Println("Initializing elevator at floor %v \n", e.Floor)
-	for e.Floor == 0 {
+	floor := GetFloor()
+
+	for floor := 0; floor < 4; floor++ {
+		for btn := 0; btn < 3; btn++ {
+			SetButtonLamp(ButtonType(btn), floor, false)
+		}
+	}
+	if floor == -1 {
 		SetMotorDirection(MD_Down)
-		floor := <-floorSensor_ch
-		if floor != 0 {
+	}
+	for floor == (-1) {
+		floor := GetFloor()
+
+		if floor != (-1) {
 			SetMotorDirection(MD_Stop)
 			e.Floor = floor
 			e.Dirn = MD_Stop
 			e.Behaviour = EB_Idle
+			break
 		}
 	}
 }
@@ -87,6 +99,7 @@ func fsmOnFloorArrival(e *Elevator, newFloor int, timer_ch chan bool, elevStatus
 			SetMotorDirection(MD_Stop)
 			SetDoorOpenLamp(true)
 			requests_clearAtCurrentFloor(e)
+			e.OrderClearedCounter++
 			go timer.Run_timer(3, timer_ch)
 			e.Behaviour = EB_DoorOpen
 			setAllLights(e)
@@ -96,8 +109,11 @@ func fsmOnFloorArrival(e *Elevator, newFloor int, timer_ch chan bool, elevStatus
 
 func fsmNewAssignments(e *Elevator, timer_ch chan bool) {
 
-	if e.Behaviour == EB_DoorOpen && requests_shouldClearImmediately(*e) {
-		go timer.Run_timer(3, timer_ch)
+	if e.Behaviour == EB_DoorOpen {
+		if requests_shouldClearImmediately(*e) {
+			go timer.Run_timer(3, timer_ch)
+		}
+		return
 	}
 
 	e.Dirn, e.Behaviour = GetDirectionAndBehaviour(e)
@@ -127,9 +143,10 @@ func HandleStopButtonPressed(e *Elevator) {
 }
 
 func setAllLights(e *Elevator) {
+	//fmt.Printf("\n Global lights in setLights %v ", e.GlobalLights)
 	for floor := 0; floor < N_FLOORS; floor++ {
 		for btn := 0; btn < N_BUTTONS; btn++ {
-			SetButtonLamp(ButtonType(btn), floor, e.Requests[floor][btn])
+			SetButtonLamp(ButtonType(btn), floor, e.GlobalLights[floor][btn])
 		}
 	}
 }
