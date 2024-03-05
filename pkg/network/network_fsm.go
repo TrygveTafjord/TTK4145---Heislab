@@ -42,7 +42,7 @@ func Network_fsm(networkUpdateTx_ch chan elevator.Elevator, networkUpdateRx_ch c
 
 		case i := <-networkUpdateTx_ch:
 			networkTx <- i
-			fmt.Printf("\n Vi sender")
+			//fmt.Printf("\n Vi sender")
 		}
 	}
 }

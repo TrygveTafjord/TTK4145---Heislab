@@ -1,6 +1,8 @@
 package elevator
 
 import (
+	//"fmt"
+
 	"project.com/pkg/timer"
 )
 
@@ -28,7 +30,6 @@ func FSM(elevStatusUpdate_ch chan Elevator) {
 			elevator.Requests = newElev.Requests
 			elevator.GlobalLights = newElev.GlobalLights
 			setAllLights(elevator)
-
 			fsmNewAssignments(elevator, timer_ch)
 
 		case newFloor := <-floorSensor_ch:
@@ -106,7 +107,6 @@ func fsmOnFloorArrival(e *Elevator, newFloor int, timer_ch chan bool, elevStatus
 }
 
 func fsmNewAssignments(e *Elevator, timer_ch chan bool) {
-
 	if e.Behaviour == EB_DoorOpen {
 		if requests_shouldClearImmediately(*e) {
 			go timer.Run_timer(3, timer_ch)

@@ -38,13 +38,38 @@ func Infobank_FSM(
 			thisElevator.Requests[btn.Floor][btn.Button] = true
 			thisElevator.GlobalLights[btn.Floor][btn.Button] = true
 
+			/*fmt.Println("Hall Requests Matrix from infobank:")
+			for i, floorRequests := range thisElevator.Requests {
+				for j, request := range floorRequests {
+					if j == 0 {
+						fmt.Printf("%v, [", i)
+					}
+					fmt.Printf("%t", request)
+					if j < len(floorRequests)-1 {
+						fmt.Print(", ")
+					} else {
+						fmt.Println("]")
+					}
+				}
+			}*/
+
 			elevatorMap[thisElevator.Id] = thisElevator
 			var newAssignmentsMap map[string][4][2]bool = hallrequestassigner.AssignHallRequests(elevatorMap)
 			thisElevator.GlobalLights = setGlobalLights(newAssignmentsMap, thisElevator)
 
+			for key, slice := range newAssignmentsMap {
+				fmt.Printf("Key: %s, Values: ", key)
+				// Iterating through the slice for each key
+				for _, pair := range slice {
+					// Printing each boolean pair
+					fmt.Printf("[%t, %t] ", pair[0], pair[1])
+				}
+				fmt.Println() // Newline for each key
+			}
+
 			for i := 0; i < elevator.N_FLOORS; i++ {
 				for j := 0; j < elevator.N_BUTTONS-1; j++ {
-					thisElevator.Requests[i][j] = newAssignmentsMap["id_1"][i][j] // endre "id_1" til "thisElevator.Id" men i tørr faen ikke røre Ole sin kode
+					thisElevator.Requests[i][j] = newAssignmentsMap[thisElevator.Id][i][j]
 				}
 			}
 			elevStatusUpdate_ch <- thisElevator
@@ -67,7 +92,7 @@ func Infobank_FSM(
 			elevatorMap[recievedElevator.Id] = recievedElevator
 
 			var newAssignmentsMap map[string][4][2]bool = hallrequestassigner.AssignHallRequests(elevatorMap)
-			
+
 			thisElevator.GlobalLights = setGlobalLights(newAssignmentsMap, thisElevator)
 
 			for i := 0; i < elevator.N_FLOORS; i++ {

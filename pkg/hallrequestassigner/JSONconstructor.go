@@ -71,6 +71,21 @@ func CreateJSON(elevators ...elevator.Elevator) []byte {
 		"states":       auxJSONMap,
 	}
 
+	/*fmt.Println("Hall Requests Matrix from JSON maker:")
+	for i, floorRequests := range hallRequests {
+		for j, request := range floorRequests {
+			if j == 0 {
+				fmt.Printf("%v, [", i)
+			}
+			fmt.Printf("%t", request)
+			if j < len(floorRequests)-1 {
+				fmt.Print(", ")
+			} else {
+				fmt.Println("]")
+			}
+		}
+	}*/
+
 	JSON, err := json.MarshalIndent(masterJSONMap, "", "    ") // "" as prefix and "    " (4 spaces) as indent
 	if err != nil {
 		fmt.Printf("JSON marshaling failed: %s", err)
@@ -78,7 +93,7 @@ func CreateJSON(elevators ...elevator.Elevator) []byte {
 	}
 
 	// Print the nicely formatted JSON string
-	fmt.Println(string(JSON))
+	//fmt.Println(string(JSON))
 
 	return JSON
 }
