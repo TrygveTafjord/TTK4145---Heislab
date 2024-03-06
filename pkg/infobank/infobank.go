@@ -36,7 +36,7 @@ func Infobank_FSM(
 		case btn := <-button_ch:
 
 			thisElevator.Requests[btn.Floor][btn.Button] = true
-			thisElevator.NewOrderCounter++
+			thisElevator.OrderCounter++
 			// sørg for at vi har nyeste status fra andre heiser, dette krever hver gang vi har en statusoppdatering lokalt-> send det til alle andre
 			networkUpdateTx_ch <- thisElevator
 
@@ -70,11 +70,11 @@ func Infobank_FSM(
 			}
 
 			//Er det noen tilfeller hvor vi ikke ønsker å oppdatere elevatormappet? Vi må annta at den inkommende meldingen har nyeste status om seg selv, men hva med f.eks global-lights?
-			elevatorMap[recievedElevator.Id] = recievedElevator
+			//Merk at vi gjør akkuratt det samme her som når vi får ett nytt knappetrykk
+			//Lag funksjon som sjekker om vi har en ny assignment ., dersom det er tilfellet->oppdater fsm og øk ordercounter
 
-			//Lag funksjon som sjekker om vi har en ny assignment, dersom det er tilfellet->oppdater fsm
 			newAssignmentsMap := hallrequestassigner.AssignHallRequests(elevatorMap)
-
+			elevatorMap[recievedElevator.Id] = recievedElevator
 			setGlobalLights(newAssignmentsMap, &thisElevator)
 
 			elevatorMap = updateMap(newAssignmentsMap, elevatorMap)
