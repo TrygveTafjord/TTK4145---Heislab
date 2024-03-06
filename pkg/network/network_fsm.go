@@ -20,10 +20,10 @@ func Network_fsm(networkUpdateTx_ch chan elevator.Elevator, networkUpdateRx_ch c
 	networkTx := make(chan elevator.Elevator, 5)
 	networkRx := make(chan elevator.Elevator, 5)
 
-	go TransmitterPeers(15647, id, peerTxEnable)
-	go ReceiverPeers(15647, peerUpdateCh)
-	go TransmitterBcast(20007, networkTx)
-	go ReceiverBcast(20007, networkRx)
+	go TransmitterPeers(15650, id, peerTxEnable)
+	go ReceiverPeers(15650, peerUpdateCh)
+	go TransmitterBcast(20025, networkTx)
+	go ReceiverBcast(20025, networkRx)
 
 	for {
 		select {

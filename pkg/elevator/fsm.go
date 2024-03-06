@@ -26,7 +26,7 @@ func FSM(elevStatusUpdate_ch chan Elevator) {
 
 		case newElev := <-elevStatusUpdate_ch:
 			elevator.Requests = newElev.Requests
-			elevator.GlobalLights = newElev.GlobalLights
+			elevator.Lights = newElev.Lights
 			elevator.OrderClearedCounter = newElev.OrderClearedCounter
 			setAllLights(elevator)
 			fsmNewAssignments(elevator, timer_ch, elevStatusUpdate_ch)
@@ -147,7 +147,7 @@ func HandleStopButtonPressed(e *Elevator) {
 func setAllLights(e *Elevator) {
 	for floor := 0; floor < N_FLOORS; floor++ {
 		for btn := 0; btn < N_BUTTONS; btn++ {
-			SetButtonLamp(ButtonType(btn), floor, e.GlobalLights[floor][btn])
+			SetButtonLamp(ButtonType(btn), floor, e.Lights[floor][btn])
 		}
 	}
 }

@@ -87,13 +87,13 @@ func GetDirectionAndBehaviour(e *Elevator) (MotorDirection, ElevatorBehaviour) {
 func requests_clearAtCurrentFloor(e *Elevator) {
 
 	e.Requests[e.Floor][BT_Cab] = false
-	e.GlobalLights[e.Floor][BT_Cab] = false
+	e.Lights[e.Floor][BT_Cab] = false
 
 	if !requestsAbove(*e) && !requestsBelow(*e) {
 		e.Requests[e.Floor][BT_HallUp] = false
 		e.Requests[e.Floor][BT_HallDown] = false
-		e.GlobalLights[e.Floor][BT_HallUp] = false
-		e.GlobalLights[e.Floor][BT_HallDown] = false
+		e.Lights[e.Floor][BT_HallUp] = false
+		e.Lights[e.Floor][BT_HallDown] = false
 
 		return
 	}
@@ -102,24 +102,24 @@ func requests_clearAtCurrentFloor(e *Elevator) {
 	case MD_Up:
 		if !requestsAbove(*e) && !(e.Requests[e.Floor][BT_HallUp]) {
 			e.Requests[e.Floor][BT_HallDown] = false
-			e.GlobalLights[e.Floor][BT_HallDown] = false
+			e.Lights[e.Floor][BT_HallDown] = false
 		}
 		e.Requests[e.Floor][BT_HallUp] = false
-		e.GlobalLights[e.Floor][BT_HallUp] = false
+		e.Lights[e.Floor][BT_HallUp] = false
 
 	case MD_Down:
 		if !requestsBelow(*e) && !(e.Requests[e.Floor][BT_HallDown]) {
 			e.Requests[e.Floor][BT_HallUp] = false
-			e.GlobalLights[e.Floor][BT_HallUp] = false
+			e.Lights[e.Floor][BT_HallUp] = false
 		}
 
 		e.Requests[e.Floor][BT_HallDown] = false
-		e.GlobalLights[e.Floor][BT_HallDown] = false
+		e.Lights[e.Floor][BT_HallDown] = false
 	default:
 		e.Requests[e.Floor][BT_HallUp] = false
 		e.Requests[e.Floor][BT_HallDown] = false
-		e.GlobalLights[e.Floor][BT_HallUp] = false
-		e.GlobalLights[e.Floor][BT_HallDown] = false
+		e.Lights[e.Floor][BT_HallUp] = false
+		e.Lights[e.Floor][BT_HallDown] = false
 	}
 }
 
@@ -150,4 +150,3 @@ func requests_shouldClearImmediately(e Elevator) bool {
 	}
 	return false
 }
-

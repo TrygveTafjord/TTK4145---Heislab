@@ -21,7 +21,7 @@ type Elevator struct {
 	Floor               int
 	Dirn                MotorDirection
 	Requests            [N_FLOORS][N_BUTTONS]bool
-	GlobalLights        [N_FLOORS][N_BUTTONS]bool
+	Lights              [N_FLOORS][N_BUTTONS]bool
 	Behaviour           ElevatorBehaviour
 	Stop_time           float64
 }

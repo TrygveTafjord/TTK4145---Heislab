@@ -26,6 +26,7 @@ func main() {
 	go infobank.Infobank_FSM(elevStatusUpdate_ch, networkUpdateTx_ch, networkUpdateRx_ch)
 	go network.Network_fsm(networkUpdateTx_ch, networkUpdateRx_ch, updatePeers_ch)
 
+
 	for {
 		time.Sleep(2000 * time.Millisecond)
 	}
