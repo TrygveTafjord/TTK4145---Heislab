@@ -28,8 +28,7 @@ func FSM(elevStatusUpdate_ch chan Elevator) {
 			elevator.Requests = newElev.Requests
 			elevator.Lights = newElev.Lights
 			elevator.OrderClearedCounter = newElev.OrderClearedCounter
-			setAllLights(elevator)
-			fsmNewAssignments(elevator, timer_ch, elevStatusUpdate_ch)
+			fsmNewAssignments(elevator, timer_ch)
 			elevStatusUpdate_ch <- *elevator
 
 		case newFloor := <-floorSensor_ch:
@@ -107,10 +106,18 @@ func fsmOnFloorArrival(e *Elevator, newFloor int, timer_ch chan bool, elevStatus
 	}
 }
 
-func fsmNewAssignments(e *Elevator, timer_ch chan bool, elevStatusUpdate_ch chan Elevator) {
+func fsmNewAssignments(e *Elevator, timer_ch chan bool) {
 
 	if e.Behaviour == EB_DoorOpen {
 		if requests_shouldClearImmediately(*e) {
+			e.Requests[e.Floor][0] = false
+			e.Requests[e.Floor][1] = false
+			e.Requests[e.Floor][2] = false
+
+			e.Lights[e.Floor][0] = false
+			e.Lights[e.Floor][1] = false
+			e.Lights[e.Floor][2] = false
+
 			e.OrderClearedCounter++
 			go timer.Run_timer(3, timer_ch)
 		}

@@ -39,7 +39,6 @@ func Infobank_FSM(
 
 			thisElevator.Requests[btn.Floor][btn.Button] = true
 			thisElevator.OrderCounter++
-			// sørg for at vi har nyeste status fra andre heiser, dette krever hver gang vi har en statusoppdatering lokalt-> send det til alle andre
 			networkUpdateTx_ch <- thisElevator
 
 			//Wrap inn i update map funksjon
@@ -55,7 +54,6 @@ func Infobank_FSM(
 
 		case newState := <-elevStatusUpdate_ch:
 
-			//Oppdater bare det som fsm skal ha kjennskap om
 			//Potensiell bug -> Ordercounter og ClearOrderCounter får feil verdi
 			newState.Id = thisElevator.Id
 			elevatorMap[thisElevator.Id] = newState
@@ -63,8 +61,6 @@ func Infobank_FSM(
 			networkUpdateTx_ch <- thisElevator
 
 		case recievedElevator := <-networkUpdateRx_ch:
-
-			//Sjekk om vi har fjernet en ny ordre og håndter det, FSM må vite om at vi har fjernet lys, men trenger vi da å få informasjon om at FSM har fjernet lys, ikke egt så det kan endre. Det blir ikke nødvendig hvis bugs av at vi oppdaterer infobank om at vi har fjernet lys?
 
 			elevatorMap[recievedElevator.Id] = recievedElevator
 
@@ -75,9 +71,6 @@ func Infobank_FSM(
 				elevStatusUpdate_ch <- thisElevator
 			}
 
-			//Er det noen tilfeller hvor vi ikke ønsker å oppdatere elevatormappet? Vi må annta at den inkommende meldingen har nyeste status om seg selv, men hva med f.eks global-lights?
-			//Merk at vi gjør akkuratt det samme her som når vi får ett nytt knappetrykk
-			//Lag funksjon som sjekker om vi har en ny assignment ., dersom det er tilfellet->oppdater fsm og øk ordercounter
 			if recievedElevator.OrderCounter > thisElevator.OrderCounter {
 				thisElevator.OrderCounter = recievedElevator.OrderCounter
 				elevatorMap[thisElevator.Id] = thisElevator
@@ -88,7 +81,6 @@ func Infobank_FSM(
 				elevStatusUpdate_ch <- thisElevator
 			}
 
-			//Legg inn logikk for å oppdatere periodisk oversikt (om noen har falt ut)
 		}
 	}
 }
