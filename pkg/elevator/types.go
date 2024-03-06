@@ -15,12 +15,13 @@ const (
 )
 
 type Elevator struct {
-	Id                      string
-	Completed_order_counter int
-	Floor                   int
-	Dirn                    MotorDirection
-	Requests                [N_FLOORS][N_BUTTONS]bool
-	Behaviour               ElevatorBehaviour
-	Stop_time               float64
+	Id                  string
+	OrderClearedCounter int
+	OrderCounter        int
+	Floor               int
+	Dirn                MotorDirection
+	Requests            [N_FLOORS][N_BUTTONS]bool
+	GlobalLights        [N_FLOORS][N_BUTTONS]bool
+	Behaviour           ElevatorBehaviour
+	Stop_time           float64
 }
-

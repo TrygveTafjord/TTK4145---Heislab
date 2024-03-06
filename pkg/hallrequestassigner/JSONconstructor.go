@@ -3,21 +3,28 @@ package hallrequestassigner
 import (
 	"encoding/json"
 	"fmt"
+
 	"project.com/pkg/elevator"
 )
 
-//assuming: [up, down, cab] in the 4x3 matrix that is requestst 
+//assuming: [up, down, cab] in the 4x3 matrix that is requestst
 
-func AssignHallRequests(newAssignments_ch chan([4][2]bool), elevatorList []elevator.Elevator)( map[string][4][2]bool){
+func AssignHallRequests(elevatorMap map[string]elevator.Elevator) map[string][4][2]bool {
+
+	elevatorList := make([]elevator.Elevator, 0, len(elevatorMap))
+
+	for _, v := range elevatorMap {
+		elevatorList = append(elevatorList, v)
+	}
+
 	JSON := CreateJSON(elevatorList...)
 	newAssignments := HallRequestAssigner(JSON)
 	return newAssignments
 }
 
-
-func CreateJSON(elevators ...elevator.Elevator) ([]byte) {
-	var stateMaps []map[string]interface{}
+func CreateJSON(elevators ...elevator.Elevator) []byte {
 	hallRequests := generateHallRequests(elevators)
+	auxJSONMap := make(map[string]interface{})
 
 	for _, e := range elevators {
 		var direction string
@@ -44,7 +51,7 @@ func CreateJSON(elevators ...elevator.Elevator) ([]byte) {
 
 		// Cab requests
 		for _, request := range e.Requests {
-			cabRequests = append(cabRequests, request[2]) 
+			cabRequests = append(cabRequests, request[2])
 		}
 
 		floor := e.Floor // Assuming floor is non-negative.
@@ -56,14 +63,7 @@ func CreateJSON(elevators ...elevator.Elevator) ([]byte) {
 			"cabRequests": cabRequests,
 		}
 
-		stateMaps = append(stateMaps, stateMap)
-	}
-
-	
-	auxJSONMap := make(map[string]interface{})
-
-	for i, stateMaps := range stateMaps {
-		auxJSONMap[fmt.Sprintf("id_%d", i+1)] = stateMaps
+		auxJSONMap[e.Id] = stateMap
 	}
 
 	masterJSONMap := map[string]interface{}{
@@ -71,15 +71,32 @@ func CreateJSON(elevators ...elevator.Elevator) ([]byte) {
 		"states":       auxJSONMap,
 	}
 
-	JSON, err := json.Marshal(masterJSONMap)
+	/*fmt.Println("Hall Requests Matrix from JSON maker:")
+	for i, floorRequests := range hallRequests {
+		for j, request := range floorRequests {
+			if j == 0 {
+				fmt.Printf("%v, [", i)
+			}
+			fmt.Printf("%t", request)
+			if j < len(floorRequests)-1 {
+				fmt.Print(", ")
+			} else {
+				fmt.Println("]")
+			}
+		}
+	}*/
+
+	JSON, err := json.MarshalIndent(masterJSONMap, "", "    ") // "" as prefix and "    " (4 spaces) as indent
 	if err != nil {
 		fmt.Printf("JSON marshaling failed: %s", err)
 		return nil
 	}
 
-	return JSON 
-}
+	// Print the nicely formatted JSON string
+	//fmt.Println(string(JSON))
 
+	return JSON
+}
 
 func generateHallRequests(elevators []elevator.Elevator) (resultMatrix [4][2]bool) {
 

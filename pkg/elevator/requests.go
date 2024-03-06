@@ -14,7 +14,7 @@ func requestsAbove(e Elevator) bool {
 func requestsBelow(e Elevator) bool {
 	for flr := 0; flr < e.Floor; flr++ {
 		for btn := 0; btn < N_BUTTONS; btn++ {
-      if e.Requests[flr][btn] {
+			if e.Requests[flr][btn] {
 				return true
 			}
 		}
@@ -34,7 +34,7 @@ func requestsHere(e Elevator) bool {
 
 func requestShouldStop(e Elevator) bool {
 	switch e.Dirn {
-  case MD_Down:
+	case MD_Down:
 		return (e.Requests[e.Floor][BT_HallDown] ||
 			e.Requests[e.Floor][BT_Cab] ||
 			!requestsBelow(e))
@@ -87,42 +87,67 @@ func GetDirectionAndBehaviour(e *Elevator) (MotorDirection, ElevatorBehaviour) {
 func requests_clearAtCurrentFloor(e *Elevator) {
 
 	e.Requests[e.Floor][BT_Cab] = false
+	e.GlobalLights[e.Floor][BT_Cab] = false
+
+	if !requestsAbove(*e) && !requestsBelow(*e) {
+		e.Requests[e.Floor][BT_HallUp] = false
+		e.Requests[e.Floor][BT_HallDown] = false
+		e.GlobalLights[e.Floor][BT_HallUp] = false
+		e.GlobalLights[e.Floor][BT_HallDown] = false
+
+		return
+	}
 	switch e.Dirn {
 
 	case MD_Up:
 		if !requestsAbove(*e) && !(e.Requests[e.Floor][BT_HallUp]) {
 			e.Requests[e.Floor][BT_HallDown] = false
+			e.GlobalLights[e.Floor][BT_HallDown] = false
 		}
 		e.Requests[e.Floor][BT_HallUp] = false
+		e.GlobalLights[e.Floor][BT_HallUp] = false
 
 	case MD_Down:
 		if !requestsBelow(*e) && !(e.Requests[e.Floor][BT_HallDown]) {
 			e.Requests[e.Floor][BT_HallUp] = false
+			e.GlobalLights[e.Floor][BT_HallUp] = false
 		}
-		e.Requests[e.Floor][BT_HallDown] = false
 
+		e.Requests[e.Floor][BT_HallDown] = false
+		e.GlobalLights[e.Floor][BT_HallDown] = false
 	default:
 		e.Requests[e.Floor][BT_HallUp] = false
 		e.Requests[e.Floor][BT_HallDown] = false
+		e.GlobalLights[e.Floor][BT_HallUp] = false
+		e.GlobalLights[e.Floor][BT_HallDown] = false
 	}
-
 }
 
-func requests_shouldClearImmediately(e *Elevator, buttonevent ButtonEvent) bool {
+func requests_shouldClearImmediately(e Elevator) bool {
 
-	switch e.Dirn {
+	var buttonsPressed []ButtonEvent
 
-	case MD_Up:
-		if buttonevent.Floor == e.Floor && (buttonevent.Button == BT_HallUp || buttonevent.Button == BT_Cab) {
-			return true
+	for i := 0; i < N_BUTTONS; i++ {
+		if e.Requests[e.Floor][i] {
+			buttonsPressed = append(buttonsPressed, ButtonEvent{e.Floor, ButtonType(i)})
 		}
+	}
 
-	case MD_Down:
-		if buttonevent.Floor == e.Floor && (buttonevent.Button == BT_HallDown || buttonevent.Button == BT_Cab) {
-			return true
+	for _, buttonevent := range buttonsPressed {
+
+		switch e.Dirn {
+
+		case MD_Up:
+			if buttonevent.Floor == e.Floor && (buttonevent.Button == BT_HallUp || buttonevent.Button == BT_Cab) {
+				return true
+			}
+
+		case MD_Down:
+			if buttonevent.Floor == e.Floor && (buttonevent.Button == BT_HallDown || buttonevent.Button == BT_Cab) {
+				return true
+			}
 		}
-
-	default:
 	}
 	return false
 }
+
