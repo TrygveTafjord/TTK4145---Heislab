@@ -150,3 +150,4 @@ func requests_shouldClearImmediately(e Elevator) bool {
 	}
 	return false
 }
+
