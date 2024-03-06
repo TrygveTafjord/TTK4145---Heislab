@@ -36,19 +36,14 @@ func Infobank_FSM(
 		case btn := <-button_ch:
 
 			thisElevator.Requests[btn.Floor][btn.Button] = true
-			thisElevator.GlobalLights[btn.Floor][btn.Button] = true
+			networkUpdateTx_ch <- thisElevator
 
 			elevatorMap[thisElevator.Id] = thisElevator
 			var newAssignmentsMap map[string][4][2]bool = hallrequestassigner.AssignHallRequests(elevatorMap)
 			thisElevator.GlobalLights = setGlobalLights(newAssignmentsMap, thisElevator)
-
-			for i := 0; i < elevator.N_FLOORS; i++ {
-				for j := 0; j < elevator.N_BUTTONS-1; j++ {
-					thisElevator.Requests[i][j] = newAssignmentsMap["id_1"][i][j] // endre "id_1" til "thisElevator.Id" men i tørr faen ikke røre Ole sin kode
-				}
-			}
+			elevatorMap = updatemap(newAssignmentsMap,elevatorMap)
+			thisElevator.Requests = elevatorMap[Ip].Requests
 			elevStatusUpdate_ch <- thisElevator
-			networkUpdateTx_ch <- thisElevator
 
 		case newState := <-elevStatusUpdate_ch:
 			newState.Id = thisElevator.Id
@@ -61,20 +56,16 @@ func Infobank_FSM(
 			if recievedElevator.OrderClearedCounter > thisElevator.OrderClearedCounter {
 				thisElevator = handleRecievedOrderCompleted(recievedElevator, thisElevator)
 			}
-
-			recievedElevator.GlobalLights = thisElevator.GlobalLights
-
+			elevatorMap[thisElevator.Id] = thisElevator
 			elevatorMap[recievedElevator.Id] = recievedElevator
-
 			var newAssignmentsMap map[string][4][2]bool = hallrequestassigner.AssignHallRequests(elevatorMap)
-			
+
 			thisElevator.GlobalLights = setGlobalLights(newAssignmentsMap, thisElevator)
 
-			for i := 0; i < elevator.N_FLOORS; i++ {
-				for j := 0; j < elevator.N_BUTTONS-1; j++ {
-					thisElevator.Requests[i][j] = newAssignmentsMap["id_1"][i][j] // endre "id_1" til "thisElevator.Id"
-				}
-			}
+			elevatorMap = updatemap(newAssignmentsMap,elevatorMap)
+			thisElevator.Requests = elevatorMap[Ip].Requests
+
+
 			elevStatusUpdate_ch <- thisElevator
 		}
 	}
@@ -99,3 +90,22 @@ func handleRecievedOrderCompleted(recievedElevator elevator.Elevator, thisElevat
 	}
 	return thisElevator
 }
+
+
+func updatemap(newAssignmentsMap map[string][4][2]bool,elevatorMap map[string]elevator.Elevator) map[string]elevator.Elevator{
+	returnMap := make(map[string]elevator.Elevator)
+
+	for id, requests := range newAssignmentsMap{
+		tempElev := elevatorMap[id]
+		for i := 0; i < elevator.N_FLOORS; i++ {
+			for j := 0; j < elevator.N_BUTTONS-1; j++ {
+				tempElev.Requests[i][j] = requests[i][j]
+			}
+		}
+		returnMap[id] = tempElev
+	}
+	return returnMap
+}
+
+
+

@@ -1,6 +1,7 @@
 package elevator
 
 import (
+
 	"project.com/pkg/timer"
 )
 
@@ -39,13 +40,13 @@ func FSM(elevStatusUpdate_ch chan Elevator) {
 			HandleStopButtonPressed(elevator)
 
 		case <-timer_ch:
-			HandleDeparture(elevator)
+			HandleDeparture(elevator, timer_ch)
+	
 		}
-
 	}
 }
 
-func HandleDeparture(e *Elevator) {
+func HandleDeparture(e *Elevator, timer_ch chan bool) {
 	e.Dirn, e.Behaviour = GetDirectionAndBehaviour(e)
 
 	switch e.Behaviour {
@@ -53,6 +54,7 @@ func HandleDeparture(e *Elevator) {
 	case EB_DoorOpen:
 		SetDoorOpenLamp(true)
 		requests_clearAtCurrentFloor(e)
+		go timer.Run_timer(3, timer_ch)
 
 	case EB_Moving:
 		SetMotorDirection(e.Dirn)
@@ -141,7 +143,6 @@ func HandleStopButtonPressed(e *Elevator) {
 }
 
 func setAllLights(e *Elevator) {
-	//fmt.Printf("\n Global lights in setLights %v ", e.GlobalLights)
 	for floor := 0; floor < N_FLOORS; floor++ {
 		for btn := 0; btn < N_BUTTONS; btn++ {
 			SetButtonLamp(ButtonType(btn), floor, e.GlobalLights[floor][btn])

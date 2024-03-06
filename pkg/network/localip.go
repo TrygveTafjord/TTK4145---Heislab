@@ -1,7 +1,9 @@
 package network
 
 import (
+	"fmt"
 	"net"
+	"os"
 	"strings"
 )
 
@@ -15,6 +17,8 @@ func LocalIP() (string, error) {
 		}
 		defer conn.Close()
 		localIP = strings.Split(conn.LocalAddr().String(), ":")[0]
+
+		localIP = fmt.Sprintf("peer-%s-%d", localIP, os.Getpid())
 	}
 	return localIP, nil
 }
