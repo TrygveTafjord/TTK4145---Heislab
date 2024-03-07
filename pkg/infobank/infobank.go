@@ -38,7 +38,7 @@ func Infobank_FSM(
 		case btn := <-button_ch:
 
 			thisElevator.Requests[btn.Floor][btn.Button] = true
-			
+
 			thisElevator.OrderCounter++
 
 			networkUpdateTx_ch <- thisElevator
@@ -69,7 +69,7 @@ func Infobank_FSM(
 
 			if recievedElevator.OrderClearedCounter > thisElevator.OrderClearedCounter {
 				thisElevator = handleRecievedOrderCompleted(recievedElevator, thisElevator)
-				setAllLights(&recievedElevator)
+				//setAllLights(&recievedElevator)
 				thisElevator.OrderClearedCounter = recievedElevator.OrderClearedCounter
 				elevatorMap[thisElevator.Id] = thisElevator
 				elevStatusUpdate_ch <- thisElevator
