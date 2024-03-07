@@ -1,6 +1,8 @@
 package elevator
 
 import (
+	"fmt"
+
 	"project.com/pkg/timer"
 )
 
@@ -20,19 +22,34 @@ func FSM(elevStatusUpdate_ch chan Elevator) {
 	initElevator(elevator, floorSensor_ch)
 
 	elevStatusUpdate_ch <- *elevator
-
+	i := 0
 	for {
 		select {
 
 		case newElev := <-elevStatusUpdate_ch:
-			elevator.Requests = newElev.Requests
-			elevator.Lights = newElev.Lights
-			elevator.OrderClearedCounter = newElev.OrderClearedCounter
-			fsmNewAssignments(elevator, timer_ch)
-			elevStatusUpdate_ch <- *elevator
+			//if new_assignment{}
+			if newElev.OrderCounter > elevator.OrderCounter {
+				elevator.Requests = newElev.Requests
+				elevator.Lights = newElev.Lights
+				elevator.OrderCounter = newElev.OrderCounter
+				elevator.OrderClearedCounter = newElev.OrderClearedCounter
+				i++
+				elevator.Test = "num fsm meldinger: " + fmt.Sprintf("%v", i)
+				fsmNewAssignments(elevator, timer_ch)
+				elevStatusUpdate_ch <- *elevator
+			}
+			if newElev.OrderClearedCounter > elevator.OrderClearedCounter {
+				elevator.Lights = newElev.Lights
+				elevator.OrderClearedCounter = newElev.OrderClearedCounter
+				setAllLights(elevator)
+			}
+
+			//if should clear_light (Infobank vet alle rede at lyset er fjernet, vi trenger ikke sende den informasjonen)
 
 		case newFloor := <-floorSensor_ch:
 			fsmOnFloorArrival(elevator, newFloor, timer_ch, elevStatusUpdate_ch)
+			elevator.Test = "denne er fra newFloor: " + fmt.Sprintf("%v", i)
+
 			elevStatusUpdate_ch <- *elevator
 
 		case <-stopButton_ch:
@@ -110,17 +127,14 @@ func fsmNewAssignments(e *Elevator, timer_ch chan bool) {
 
 	if e.Behaviour == EB_DoorOpen {
 		if requests_shouldClearImmediately(*e) {
-			e.Requests[e.Floor][0] = false
-			e.Requests[e.Floor][1] = false
-			e.Requests[e.Floor][2] = false
 
-			e.Lights[e.Floor][0] = false
-			e.Lights[e.Floor][1] = false
-			e.Lights[e.Floor][2] = false
+			requests_clearAtCurrentFloor(e)
 
 			e.OrderClearedCounter++
+
 			go timer.Run_timer(3, timer_ch)
 		}
+		setAllLights(e)
 		return
 	}
 

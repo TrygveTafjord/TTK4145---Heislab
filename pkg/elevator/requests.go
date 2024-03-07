@@ -138,15 +138,21 @@ func requests_shouldClearImmediately(e Elevator) bool {
 		switch e.Dirn {
 
 		case MD_Up:
-			if buttonevent.Floor == e.Floor && (buttonevent.Button == BT_HallUp || buttonevent.Button == BT_Cab) {
+			if buttonevent.Button == BT_HallUp || buttonevent.Button == BT_Cab {
 				return true
 			}
 
 		case MD_Down:
-			if buttonevent.Floor == e.Floor && (buttonevent.Button == BT_HallDown || buttonevent.Button == BT_Cab) {
+			if buttonevent.Button == BT_HallDown || buttonevent.Button == BT_Cab {
 				return true
 			}
+		case MD_Stop:
+			if buttonevent.Button == BT_HallDown || buttonevent.Button == BT_Cab || buttonevent.Button == BT_HallUp{
+				return true
+			}
+
 		}
+	
 	}
 	return false
 }

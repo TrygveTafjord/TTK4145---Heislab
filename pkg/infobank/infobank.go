@@ -38,7 +38,9 @@ func Infobank_FSM(
 		case btn := <-button_ch:
 
 			thisElevator.Requests[btn.Floor][btn.Button] = true
+			
 			thisElevator.OrderCounter++
+
 			networkUpdateTx_ch <- thisElevator
 
 			//Wrap inn i update map funksjon
@@ -49,10 +51,11 @@ func Infobank_FSM(
 			//wrap inn i update map funksjo
 
 			thisElevator.Requests = elevatorMap[thisElevator.Id].Requests
-
+			fmt.Printf("Vi sender en melding til FSM, og skal få ett svar\n")
 			elevStatusUpdate_ch <- thisElevator
 
 		case newState := <-elevStatusUpdate_ch:
+			fmt.Printf("Vi har nottat ett svar\n")
 
 			//Potensiell bug -> Ordercounter og ClearOrderCounter får feil verdi
 			newState.Id = thisElevator.Id
@@ -66,9 +69,11 @@ func Infobank_FSM(
 
 			if recievedElevator.OrderClearedCounter > thisElevator.OrderClearedCounter {
 				thisElevator = handleRecievedOrderCompleted(recievedElevator, thisElevator)
+				setAllLights(&recievedElevator)
 				thisElevator.OrderClearedCounter = recievedElevator.OrderClearedCounter
 				elevatorMap[thisElevator.Id] = thisElevator
 				elevStatusUpdate_ch <- thisElevator
+
 			}
 
 			if recievedElevator.OrderCounter > thisElevator.OrderCounter {
@@ -78,6 +83,7 @@ func Infobank_FSM(
 				setLights(newAssignmentsMap, &thisElevator)
 				elevatorMap = updateMap(newAssignmentsMap, elevatorMap)
 				thisElevator.Requests = elevatorMap[thisElevator.Id].Requests
+				fmt.Printf("Vi sender en melding til FSM, og skal få ett svar\n")
 				elevStatusUpdate_ch <- thisElevator
 			}
 
@@ -121,4 +127,12 @@ func updateMap(newAssignmentsMap map[string][4][2]bool, elevatorMap map[string]e
 }
 func handleNewOrder(elevatorMap map[string]elevator.Elevator, thisElevator *elevator.Elevator) {
 
+}
+
+func setAllLights(e *elevator.Elevator) {
+	for floor := 0; floor < elevator.N_FLOORS; floor++ {
+		for btn := 0; btn < elevator.N_BUTTONS; btn++ {
+			elevator.SetButtonLamp(elevator.ButtonType(btn), floor, e.Lights[floor][btn])
+		}
+	}
 }
