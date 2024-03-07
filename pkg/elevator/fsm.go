@@ -1,8 +1,6 @@
 package elevator
 
 import (
-	"fmt"
-
 	"project.com/pkg/timer"
 )
 
@@ -22,7 +20,6 @@ func FSM(elevStatusUpdate_ch chan Elevator) {
 	initElevator(elevator, floorSensor_ch)
 
 	elevStatusUpdate_ch <- *elevator
-	i := 0
 	for {
 		select {
 
@@ -33,8 +30,6 @@ func FSM(elevStatusUpdate_ch chan Elevator) {
 				elevator.Lights = newElev.Lights
 				elevator.OrderCounter = newElev.OrderCounter
 				elevator.OrderClearedCounter = newElev.OrderClearedCounter
-				i++
-				elevator.Test = "num fsm meldinger: " + fmt.Sprintf("%v", i)
 				fsmNewAssignments(elevator, timer_ch)
 				elevStatusUpdate_ch <- *elevator
 			}
@@ -48,8 +43,6 @@ func FSM(elevStatusUpdate_ch chan Elevator) {
 
 		case newFloor := <-floorSensor_ch:
 			fsmOnFloorArrival(elevator, newFloor, timer_ch, elevStatusUpdate_ch)
-			elevator.Test = "denne er fra newFloor: " + fmt.Sprintf("%v", i)
-
 			elevStatusUpdate_ch <- *elevator
 
 		case <-stopButton_ch:

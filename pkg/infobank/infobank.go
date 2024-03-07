@@ -32,31 +32,30 @@ func Infobank_FSM(
 	thisElevator.OrderClearedCounter = 0
 	thisElevator.OrderCounter = 0
 	elevatorMap[thisElevator.Id] = thisElevator
-
+	var hallRequestsMap map[string][4][2]bool
+	i := 0
 	for {
 		select {
 		case btn := <-button_ch:
-
+			//Pass information about new assignment to other nodes
 			thisElevator.Requests[btn.Floor][btn.Button] = true
-
 			thisElevator.OrderCounter++
-
 			networkUpdateTx_ch <- thisElevator
 
-			//Wrap inn i update map funksjon
+			//Update map to contain information about this new assignment
 			elevatorMap[thisElevator.Id] = thisElevator
-			newAssignmentsMap := hallrequestassigner.AssignHallRequests(elevatorMap)
-			setLights(newAssignmentsMap, &thisElevator)
-			elevatorMap = updateMap(newAssignmentsMap, elevatorMap)
-			//wrap inn i update map funksjo
+			hallrequestassigner.AssignHallRequests(elevatorMap, &hallRequestsMap)
+			setLights(hallRequestsMap, &thisElevator)
+			fmt.Print("I set lights in button block")
+			updateMapWithNewAssignments(hallRequestsMap, &elevatorMap)
 
+			//Pass information about the new assignment distribution to our local elevator
 			thisElevator.Requests = elevatorMap[thisElevator.Id].Requests
-			fmt.Printf("Vi sender en melding til FSM, og skal få ett svar\n")
+
+			//Pass information about the newly distributed assignments to FSM, through our local elevator
 			elevStatusUpdate_ch <- thisElevator
 
 		case newState := <-elevStatusUpdate_ch:
-			fmt.Printf("Vi har nottat ett svar\n")
-
 			//Potensiell bug -> Ordercounter og ClearOrderCounter får feil verdi
 			newState.Id = thisElevator.Id
 			elevatorMap[thisElevator.Id] = newState
@@ -64,12 +63,12 @@ func Infobank_FSM(
 			networkUpdateTx_ch <- thisElevator
 
 		case recievedElevator := <-networkUpdateRx_ch:
-
 			elevatorMap[recievedElevator.Id] = recievedElevator
 
 			if recievedElevator.OrderClearedCounter > thisElevator.OrderClearedCounter {
 				thisElevator = handleRecievedOrderCompleted(recievedElevator, thisElevator)
-				//setAllLights(&recievedElevator)
+				hallrequestassigner.AssignHallRequests(elevatorMap, &hallRequestsMap)
+				setLights(hallRequestsMap, &thisElevator)
 				thisElevator.OrderClearedCounter = recievedElevator.OrderClearedCounter
 				elevatorMap[thisElevator.Id] = thisElevator
 				elevStatusUpdate_ch <- thisElevator
@@ -77,13 +76,15 @@ func Infobank_FSM(
 			}
 
 			if recievedElevator.OrderCounter > thisElevator.OrderCounter {
+				i++
 				thisElevator.OrderCounter = recievedElevator.OrderCounter
 				elevatorMap[thisElevator.Id] = thisElevator
-				newAssignmentsMap := hallrequestassigner.AssignHallRequests(elevatorMap)
-				setLights(newAssignmentsMap, &thisElevator)
-				elevatorMap = updateMap(newAssignmentsMap, elevatorMap)
+				hallrequestassigner.AssignHallRequests(elevatorMap, &hallRequestsMap)
+
+				setLights(hallRequestsMap, &thisElevator)
+
+				updateMapWithNewAssignments(hallRequestsMap, &elevatorMap)
 				thisElevator.Requests = elevatorMap[thisElevator.Id].Requests
-				fmt.Printf("Vi sender en melding til FSM, og skal få ett svar\n")
 				elevStatusUpdate_ch <- thisElevator
 			}
 
@@ -111,11 +112,11 @@ func handleRecievedOrderCompleted(recievedElevator elevator.Elevator, thisElevat
 	return thisElevator
 }
 
-func updateMap(newAssignmentsMap map[string][4][2]bool, elevatorMap map[string]elevator.Elevator) map[string]elevator.Elevator {
+func updateMapWithNewAssignments(newAssignmentsMap map[string][4][2]bool, elevatorMap *map[string]elevator.Elevator) {
 	returnMap := make(map[string]elevator.Elevator)
 
 	for id, requests := range newAssignmentsMap {
-		tempElev := elevatorMap[id]
+		tempElev := (*elevatorMap)[id]
 		for i := 0; i < elevator.N_FLOORS; i++ {
 			for j := 0; j < elevator.N_BUTTONS-1; j++ {
 				tempElev.Requests[i][j] = requests[i][j]
@@ -123,7 +124,7 @@ func updateMap(newAssignmentsMap map[string][4][2]bool, elevatorMap map[string]e
 		}
 		returnMap[id] = tempElev
 	}
-	return returnMap
+	*elevatorMap = returnMap
 }
 func handleNewOrder(elevatorMap map[string]elevator.Elevator, thisElevator *elevator.Elevator) {
 

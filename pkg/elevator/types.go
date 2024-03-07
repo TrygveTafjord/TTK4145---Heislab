@@ -24,5 +24,4 @@ type Elevator struct {
 	Lights              [N_FLOORS][N_BUTTONS]bool
 	Behaviour           ElevatorBehaviour
 	Stop_time           float64
-	Test                string
 }
