@@ -16,10 +16,8 @@ func FSM(elevStatusUpdate_ch chan Elevator) {
 	go PollObstructionSwitch(obstruction_ch)
 
 	elevator := new(Elevator)
+	*elevator = <-elevStatusUpdate_ch
 
-	initElevator(elevator, floorSensor_ch)
-
-	elevStatusUpdate_ch <- *elevator
 	for {
 		select {
 
@@ -71,30 +69,6 @@ func HandleDeparture(e *Elevator, timer_ch chan bool) {
 
 	case EB_Idle:
 		SetDoorOpenLamp(false)
-	}
-}
-
-func initElevator(e *Elevator, floorSensor_ch chan int) {
-	floor := GetFloor()
-
-	for floor := 0; floor < 4; floor++ {
-		for btn := 0; btn < 3; btn++ {
-			SetButtonLamp(ButtonType(btn), floor, false)
-		}
-	}
-	if floor == -1 {
-		SetMotorDirection(MD_Down)
-	}
-	for floor == (-1) {
-		floor := GetFloor()
-
-		if floor != (-1) {
-			SetMotorDirection(MD_Stop)
-			e.Floor = floor
-			e.Dirn = MD_Stop
-			e.Behaviour = EB_Idle
-			break
-		}
 	}
 }
 

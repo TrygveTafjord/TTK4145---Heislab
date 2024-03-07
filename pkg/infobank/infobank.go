@@ -5,7 +5,6 @@ import (
 
 	"project.com/pkg/elevator"
 	"project.com/pkg/hallrequestassigner"
-	"project.com/pkg/network"
 )
 
 func Infobank_FSM(
@@ -18,22 +17,14 @@ func Infobank_FSM(
 	go elevator.PollButtons(button_ch)
 
 	elevatorMap := make(map[string]elevator.Elevator)
+
 	var thisElevator elevator.Elevator
-
-	//wait for initial status update (potential bug: what if no status update is received?)
 	thisElevator = <-elevStatusUpdate_ch
+	networkUpdateTx_ch <- thisElevator
 
-	Ip, e := network.LocalIP()
-	if e != nil {
-		fmt.Printf("could not get IP")
-	}
-
-	thisElevator.Id = Ip
-	thisElevator.OrderClearedCounter = 0
-	thisElevator.OrderCounter = 0
 	elevatorMap[thisElevator.Id] = thisElevator
 	var hallRequestsMap map[string][4][2]bool
-	i := 0
+
 	for {
 		select {
 		case btn := <-button_ch:
@@ -57,7 +48,6 @@ func Infobank_FSM(
 
 		case newState := <-elevStatusUpdate_ch:
 			//Potensiell bug -> Ordercounter og ClearOrderCounter får feil verdi
-			newState.Id = thisElevator.Id
 			elevatorMap[thisElevator.Id] = newState
 			thisElevator = newState
 			networkUpdateTx_ch <- thisElevator
@@ -76,7 +66,6 @@ func Infobank_FSM(
 			}
 
 			if recievedElevator.OrderCounter > thisElevator.OrderCounter {
-				i++
 				thisElevator.OrderCounter = recievedElevator.OrderCounter
 				elevatorMap[thisElevator.Id] = thisElevator
 				hallrequestassigner.AssignHallRequests(elevatorMap, &hallRequestsMap)

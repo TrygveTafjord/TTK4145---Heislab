@@ -16,7 +16,14 @@ func main() {
 	port := args[1]
 	elevator.Init("localhost:"+port, 4)
 
+	id, err := network.LocalIP()
+	if err != nil {
+		fmt.Printf("could not get IP")
+	}
+
 	elevStatusUpdate_ch := make(chan elevator.Elevator, 50)
+
+	elevator.ElevatorInit(elevStatusUpdate_ch, id)
 
 	networkUpdateTx_ch := make(chan elevator.Elevator, 5)
 	networkUpdateRx_ch := make(chan elevator.Elevator, 5)
