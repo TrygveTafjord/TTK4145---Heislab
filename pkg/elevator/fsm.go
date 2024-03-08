@@ -3,6 +3,7 @@ package elevator
 import (
 	//"fmt"
 
+
 	"project.com/pkg/timer"
 )
 
@@ -13,7 +14,6 @@ func FSM(elevStatusUpdate_ch chan Elevator) {
 	obstruction_ch := make(chan bool)
 	timer_ch := make(chan bool)
 
-	obstruction := GetObstruction()
 
 	go PollFloorSensor(floorSensor_ch)
 	go PollStopButton(stopButton_ch)
@@ -22,10 +22,13 @@ func FSM(elevStatusUpdate_ch chan Elevator) {
 	elevator := new(Elevator)
 	*elevator = <-elevStatusUpdate_ch
 
+	obstruction := GetObstruction()
+
 	for {
 		select {
 
 		case newElev := <-elevStatusUpdate_ch:
+
 			//if new_assignment{}
 			if newElev.OrderCounter > elevator.OrderCounter {
 				elevator.Requests = newElev.Requests
@@ -49,9 +52,10 @@ func FSM(elevStatusUpdate_ch chan Elevator) {
 
 		case <-stopButton_ch:
 			HandleStopButtonPressed(elevator)
-
 		case <-timer_ch:
-			HandleDeparture(elevator, timer_ch, obstruction, elevStatusUpdate_ch)
+			HandleDeparture(elevator, timer_ch, obstruction)
+			elevStatusUpdate_ch <- *elevator
+
 		case obstr := <-obstruction_ch:
 			if (!obstr && elevator.Behaviour == EB_DoorOpen) {
 				go timer.Run_timer(3, timer_ch)
@@ -61,7 +65,7 @@ func FSM(elevStatusUpdate_ch chan Elevator) {
 	}
 }
 
-func HandleDeparture(e *Elevator, timer_ch chan bool, obstruction bool, elevStatusUpdate_ch chan Elevator) {
+func HandleDeparture(e *Elevator, timer_ch chan bool, obstruction bool) {
 	if(obstruction && e.Behaviour == EB_DoorOpen){
 		go timer.Run_timer(3, timer_ch)
 	}else{
@@ -103,7 +107,7 @@ func fsmOnFloorArrival(e *Elevator, newFloor int, timer_ch chan bool, elevStatus
 }
 
 func fsmNewAssignments(e *Elevator, timer_ch chan bool) {
-
+		// Her mistenker jeg det kommer bugs -Per 08.03
 	if e.Behaviour == EB_DoorOpen {
 		if requests_shouldClearImmediately(*e) {
 
