@@ -1,10 +1,13 @@
 package infobank
 
 import (
-	"fmt"
+	//"fmt"
+
+	"time"
 
 	"project.com/pkg/elevator"
 	"project.com/pkg/hallrequestassigner"
+	//"project.com/pkg/timer"
 )
 
 func Infobank_FSM(
@@ -25,6 +28,9 @@ func Infobank_FSM(
 	elevatorMap[thisElevator.Id] = thisElevator
 	var hallRequestsMap map[string][4][2]bool
 
+	periodicUpdate_ch:= make(chan bool,10)
+	go PeriodicUpdate(periodicUpdate_ch)
+
 	for {
 		select {
 		case btn := <-button_ch:
@@ -37,7 +43,7 @@ func Infobank_FSM(
 			elevatorMap[thisElevator.Id] = thisElevator
 			hallrequestassigner.AssignHallRequests(elevatorMap, &hallRequestsMap)
 			setLights(hallRequestsMap, &thisElevator)
-			fmt.Print("I set lights in button block")
+			//fmt.Print("I set lights in button block")
 			updateMapWithNewAssignments(hallRequestsMap, &elevatorMap)
 
 			//Pass information about the new assignment distribution to our local elevator
@@ -47,6 +53,7 @@ func Infobank_FSM(
 			elevStatusUpdate_ch <- thisElevator
 
 		case newState := <-elevStatusUpdate_ch:
+
 			//Potensiell bug -> Ordercounter og ClearOrderCounter får feil verdi
 			elevatorMap[thisElevator.Id] = newState
 			thisElevator = newState
@@ -54,7 +61,7 @@ func Infobank_FSM(
 
 		case recievedElevator := <-networkUpdateRx_ch:
 			elevatorMap[recievedElevator.Id] = recievedElevator
-
+			//Vi assigner kun dersom noen har knappetrykk eller fullført en ordre. Ikke dersom de ikke får gjort noe
 			if recievedElevator.OrderClearedCounter > thisElevator.OrderClearedCounter {
 				thisElevator = handleRecievedOrderCompleted(recievedElevator, thisElevator)
 				hallrequestassigner.AssignHallRequests(elevatorMap, &hallRequestsMap)
@@ -76,8 +83,14 @@ func Infobank_FSM(
 				thisElevator.Requests = elevatorMap[thisElevator.Id].Requests
 				elevStatusUpdate_ch <- thisElevator
 			}
+		
+		case <- periodicUpdate_ch:
+			networkUpdateTx_ch <- thisElevator
+
 
 		}
+
+		
 	}
 }
 
@@ -124,5 +137,13 @@ func setAllLights(e *elevator.Elevator) {
 		for btn := 0; btn < elevator.N_BUTTONS; btn++ {
 			elevator.SetButtonLamp(elevator.ButtonType(btn), floor, e.Lights[floor][btn])
 		}
+	}
+}
+
+
+func PeriodicUpdate(periodicUpdate_ch chan bool){
+	for{
+		time.Sleep(2000 * time.Millisecond)
+		periodicUpdate_ch <- true
 	}
 }
