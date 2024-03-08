@@ -89,6 +89,7 @@ func requests_clearAtCurrentFloor(e *Elevator) {
 	e.Requests[e.Floor][BT_Cab] = false
 	e.Lights[e.Floor][BT_Cab] = false
 
+		/*
 	if !requestsAbove(*e) && !requestsBelow(*e) {
 		e.Requests[e.Floor][BT_HallUp] = false
 		e.Requests[e.Floor][BT_HallDown] = false
@@ -97,6 +98,7 @@ func requests_clearAtCurrentFloor(e *Elevator) {
 
 		return
 	}
+	*/
 	switch e.Dirn {
 
 	case MD_Up:
