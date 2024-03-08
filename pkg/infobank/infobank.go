@@ -1,13 +1,10 @@
 package infobank
 
 import (
-	//"fmt"
-
 	"time"
 
 	"project.com/pkg/elevator"
 	"project.com/pkg/hallrequestassigner"
-	//"project.com/pkg/timer"
 )
 
 func Infobank_FSM(
@@ -31,6 +28,7 @@ func Infobank_FSM(
 	periodicUpdate_ch:= make(chan bool,10)
 	go PeriodicUpdate(periodicUpdate_ch)
 
+
 	for {
 		select {
 		case btn := <-button_ch:
@@ -43,7 +41,6 @@ func Infobank_FSM(
 			elevatorMap[thisElevator.Id] = thisElevator
 			hallrequestassigner.AssignHallRequests(elevatorMap, &hallRequestsMap)
 			setLights(hallRequestsMap, &thisElevator)
-			//fmt.Print("I set lights in button block")
 			updateMapWithNewAssignments(hallRequestsMap, &elevatorMap)
 
 			//Pass information about the new assignment distribution to our local elevator
@@ -53,7 +50,6 @@ func Infobank_FSM(
 			elevStatusUpdate_ch <- thisElevator
 
 		case newState := <-elevStatusUpdate_ch:
-
 			//Potensiell bug -> Ordercounter og ClearOrderCounter får feil verdi
 			elevatorMap[thisElevator.Id] = newState
 			thisElevator = newState
@@ -61,7 +57,7 @@ func Infobank_FSM(
 
 		case recievedElevator := <-networkUpdateRx_ch:
 			elevatorMap[recievedElevator.Id] = recievedElevator
-			//Vi assigner kun dersom noen har knappetrykk eller fullført en ordre. Ikke dersom de ikke får gjort noe
+
 			if recievedElevator.OrderClearedCounter > thisElevator.OrderClearedCounter {
 				thisElevator = handleRecievedOrderCompleted(recievedElevator, thisElevator)
 				hallrequestassigner.AssignHallRequests(elevatorMap, &hallRequestsMap)
@@ -70,9 +66,7 @@ func Infobank_FSM(
 				elevatorMap[thisElevator.Id] = thisElevator
 				elevStatusUpdate_ch <- thisElevator
 
-			}
-
-			if recievedElevator.OrderCounter > thisElevator.OrderCounter {
+			} else if recievedElevator.OrderCounter > thisElevator.OrderCounter {
 				thisElevator.OrderCounter = recievedElevator.OrderCounter
 				elevatorMap[thisElevator.Id] = thisElevator
 				hallrequestassigner.AssignHallRequests(elevatorMap, &hallRequestsMap)
@@ -82,15 +76,16 @@ func Infobank_FSM(
 				updateMapWithNewAssignments(hallRequestsMap, &elevatorMap)
 				thisElevator.Requests = elevatorMap[thisElevator.Id].Requests
 				elevStatusUpdate_ch <- thisElevator
+			} else{ 
+			hallrequestassigner.AssignHallRequests(elevatorMap, &hallRequestsMap)
+			setLights(hallRequestsMap, &thisElevator)
+			updateMapWithNewAssignments(hallRequestsMap, &elevatorMap)
+			thisElevator.Requests = elevatorMap[thisElevator.Id].Requests
+			elevStatusUpdate_ch <- thisElevator
 			}
-		
 		case <- periodicUpdate_ch:
 			networkUpdateTx_ch <- thisElevator
-
-
 		}
-
-		
 	}
 }
 
