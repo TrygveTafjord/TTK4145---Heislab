@@ -1,6 +1,8 @@
 package elevator
 
 import (
+	//"fmt"
+
 	"project.com/pkg/timer"
 )
 
@@ -10,6 +12,8 @@ func FSM(elevStatusUpdate_ch chan Elevator) {
 	stopButton_ch := make(chan bool)
 	obstruction_ch := make(chan bool)
 	timer_ch := make(chan bool)
+
+	obstruction := GetObstruction()
 
 	go PollFloorSensor(floorSensor_ch)
 	go PollStopButton(stopButton_ch)
@@ -47,28 +51,36 @@ func FSM(elevStatusUpdate_ch chan Elevator) {
 			HandleStopButtonPressed(elevator)
 
 		case <-timer_ch:
-			HandleDeparture(elevator, timer_ch)
-
+			HandleDeparture(elevator, timer_ch, obstruction, elevStatusUpdate_ch)
+		case obstr := <-obstruction_ch:
+			if (!obstr && elevator.Behaviour == EB_DoorOpen) {
+				go timer.Run_timer(3, timer_ch)
+			}
+			obstruction = obstr
 		}
 	}
 }
 
-func HandleDeparture(e *Elevator, timer_ch chan bool) {
-	e.Dirn, e.Behaviour = GetDirectionAndBehaviour(e)
-
-	switch e.Behaviour {
-
-	case EB_DoorOpen:
-		SetDoorOpenLamp(true)
-		requests_clearAtCurrentFloor(e)
+func HandleDeparture(e *Elevator, timer_ch chan bool, obstruction bool, elevStatusUpdate_ch chan Elevator) {
+	if(obstruction && e.Behaviour == EB_DoorOpen){
 		go timer.Run_timer(3, timer_ch)
+	}else{
+		e.Dirn, e.Behaviour = GetDirectionAndBehaviour(e)
 
-	case EB_Moving:
-		SetMotorDirection(e.Dirn)
-		SetDoorOpenLamp(false)
+		switch e.Behaviour {
 
-	case EB_Idle:
-		SetDoorOpenLamp(false)
+		case EB_DoorOpen:
+			SetDoorOpenLamp(true)
+			requests_clearAtCurrentFloor(e)
+			go timer.Run_timer(3, timer_ch)
+
+		case EB_Moving:
+			SetMotorDirection(e.Dirn)
+			SetDoorOpenLamp(false)
+
+		case EB_Idle:
+			SetDoorOpenLamp(false)
+		}
 	}
 }
 
