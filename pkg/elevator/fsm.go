@@ -1,13 +1,13 @@
 package elevator
 
 import (
-	//"fmt"
 
+	//"fmt"
 
 	"project.com/pkg/timer"
 )
 
-func FSM(elevStatusUpdate_ch chan Elevator) {
+func FSM(elevStatusUpdate_ch chan Elevator, init_ch chan Elevator) {
 
 	floorSensor_ch := make(chan int)
 	stopButton_ch := make(chan bool)
@@ -20,9 +20,10 @@ func FSM(elevStatusUpdate_ch chan Elevator) {
 	go PollObstructionSwitch(obstruction_ch)
 
 	elevator := new(Elevator)
-	*elevator = <-elevStatusUpdate_ch
+	*elevator = <-init_ch
 
 	obstruction := GetObstruction()
+
 
 	for {
 		select {
