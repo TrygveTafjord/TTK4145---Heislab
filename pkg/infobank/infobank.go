@@ -28,7 +28,6 @@ func Infobank_FSM(
 	var thisElevator elevator.Elevator
 
 	thisElevator = <-elevStatusUpdate_ch
-	fmt.Printf("motat status i infobank\n")
 
 	elevatorMap[thisElevator.Id] = thisElevator
 
@@ -59,24 +58,27 @@ func Infobank_FSM(
 				MsgType:  msgType,
 				Elevator: thisElevator, 
 			}
-			networkUpdateTx_ch <- msg
 
+			networkUpdateTx_ch <- msg
 
 		case Msg := <-networkUpdateRx_ch:
 
 			switch Msg.MsgType  {
 
 				case network.NewOrder:
-				
 					handleNewOrder(elevatorMap, &Msg.Elevator, &thisElevator)
 					elevStatusUpdate_ch <- thisElevator
 				
 				case network.OrderCompleted:
-
 					handleOrderCompleted(elevatorMap, &Msg.Elevator, &thisElevator)
 					elevStatusUpdate_ch <- thisElevator
 				
 				case network.StateUpdate:
+				// Midlertidig løsning for packetloss ved slukking av lys, dette kan være kilde til bus, men funker fett nå (merk at vi alltid setter order counter til å være det vi får inn)
+					if Msg.Elevator != elevatorMap[Msg.Elevator.Id] {
+						handleOrderCompleted(elevatorMap, &Msg.Elevator, &thisElevator)
+						elevStatusUpdate_ch <- thisElevator
+					} 
 					elevatorMap[Msg.Elevator.Id] = Msg.Elevator	
 			}	
 
@@ -129,7 +131,7 @@ func setAllLights(e *elevator.Elevator) {
 
 func PeriodicUpdate(periodicUpdate_ch chan bool){
 	for{
-		time.Sleep(5000 * time.Millisecond)
+		time.Sleep(1000 * time.Millisecond)
 		periodicUpdate_ch <- true
 	}
 }
@@ -224,6 +226,8 @@ func setLightMatrix(newAssignmentsMap map[string][4][2]bool, e *elevator.Elevato
 func setElevatorAsignments(elevatorMap map[string] elevator.Elevator, e *elevator.Elevator){
 	e.Requests = elevatorMap[e.Id].Requests
 }
+
+
 
 //Vi må oppdage om en heis som ikke står i idle og ikke har tom request matrise og har stått stille lenge og behandle det
 //Vi må også oppdage om en heis ikke har sendt melding på en stund

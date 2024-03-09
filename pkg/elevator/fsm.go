@@ -30,20 +30,18 @@ func FSM(elevStatusUpdate_ch chan Elevator) {
 
 		case newElev := <-elevStatusUpdate_ch:
 
-			//if new_assignment{}
 			if newElev.OrderCounter > elevator.OrderCounter {
 				elevator.Requests = newElev.Requests
 				elevator.Lights = newElev.Lights
 				elevator.OrderCounter = newElev.OrderCounter
-				elevator.OrderClearedCounter = newElev.OrderClearedCounter
 				fsmNewAssignments(elevator, timer_ch)
 				elevStatusUpdate_ch <- *elevator
-			}
-			if newElev.OrderClearedCounter > elevator.OrderClearedCounter {
-				elevator.Lights = newElev.Lights
-				elevator.OrderClearedCounter = newElev.OrderClearedCounter
-				setAllLights(elevator)
-			}
+			} 
+
+
+			elevator.Lights = newElev.Lights
+			elevator.OrderClearedCounter = newElev.OrderClearedCounter
+			setAllLights(elevator)
 
 
 		case newFloor := <-floorSensor_ch:
