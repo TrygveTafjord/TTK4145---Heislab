@@ -22,16 +22,18 @@ func main() {
 	}
 
 	elevStatusUpdate_ch := make(chan elevator.Elevator, 50)
+	networkUpdateTx_ch := make(chan elevator.Elevator, 50)
+	networkUpdateRx_ch := make(chan elevator.Elevator, 50)
+	peerUpdate_ch := make(chan network.PeerUpdate,50)
+	init_ch := make(chan elevator.Elevator)
 
-	elevator.ElevatorInit(elevStatusUpdate_ch, id)
 
-	networkUpdateTx_ch := make(chan elevator.Elevator, 5)
-	networkUpdateRx_ch := make(chan elevator.Elevator, 5)
-	updatePeers_ch := make(chan network.PeerUpdate)
 
-	go elevator.FSM(elevStatusUpdate_ch)
-	go infobank.Infobank_FSM(elevStatusUpdate_ch, networkUpdateTx_ch, networkUpdateRx_ch)
-	go network.Network_fsm(networkUpdateTx_ch, networkUpdateRx_ch, updatePeers_ch)
+	go elevator.FSM(elevStatusUpdate_ch,init_ch)
+	go infobank.Infobank_FSM(elevStatusUpdate_ch, networkUpdateTx_ch, networkUpdateRx_ch, peerUpdate_ch)
+	go network.Network_fsm(networkUpdateTx_ch, networkUpdateRx_ch, peerUpdate_ch)
+
+	elevator.ElevatorInit(init_ch, id)
 
 	for {
 		time.Sleep(2000 * time.Millisecond)
