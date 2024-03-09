@@ -2,6 +2,7 @@ package elevator
 
 func ElevatorInit(elevStatusUpdate_ch chan Elevator, Id string) {
 	var e Elevator
+	SetDoorOpenLamp(false)
 
 	e.Id = Id
 	e.OrderClearedCounter = 0
@@ -15,6 +16,7 @@ func ElevatorInit(elevStatusUpdate_ch chan Elevator, Id string) {
 			SetButtonLamp(ButtonType(btn), floor, false)
 		}
 	}
+
 
 	if floor == -1 {
 		SetMotorDirection(MD_Down)
