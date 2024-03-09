@@ -5,9 +5,8 @@ import (
 	"time"
 
 	"project.com/pkg/elevator"
-	"project.com/pkg/network"
 	"project.com/pkg/hallrequestassigner"
-
+	"project.com/pkg/network"
 )
 
 func Infobank_FSM(
@@ -17,13 +16,13 @@ func Infobank_FSM(
 	peerUpdate_ch chan network.PeerUpdate,
 ) {
 
-	button_ch 			:= make(chan elevator.ButtonEvent, 50)
-	periodicUpdate_ch	:= make(chan bool,50)
+	button_ch := make(chan elevator.ButtonEvent, 50)
+	periodicUpdate_ch := make(chan bool, 50)
 
 	go elevator.PollButtons(button_ch)
 	go PeriodicUpdate(periodicUpdate_ch)
-	
-	elevatorMap     := make(map[string]elevator.Elevator)
+
+	elevatorMap := make(map[string]elevator.Elevator)
 	hallRequestsMap := make(map[string][4][2]bool)
 	var thisElevator elevator.Elevator
 
@@ -36,11 +35,11 @@ func Infobank_FSM(
 		case btn := <-button_ch:
 
 			thisElevator.Requests[btn.Floor][btn.Button] = true
-			thisElevator.OrderCounter ++
+			thisElevator.OrderCounter++
 
-			msg  := network.Msg{
+			msg := network.Msg{
 				MsgType:  network.NewOrder,
-				Elevator: thisElevator, 
+				Elevator: thisElevator,
 			}
 
 			networkUpdateTx_ch <- msg
@@ -51,47 +50,47 @@ func Infobank_FSM(
 
 		case newState := <-elevStatusUpdate_ch:
 
-			msgType := calculateMsgType(newState, thisElevator)
 			storeFsmUpdate(elevatorMap, &thisElevator, &newState)
+			msgType := calculateMsgType(newState, thisElevator)
 
-			msg  := network.Msg{
+			msg := network.Msg{
 				MsgType:  msgType,
-				Elevator: thisElevator, 
+				Elevator: thisElevator,
 			}
 
 			networkUpdateTx_ch <- msg
 
 		case Msg := <-networkUpdateRx_ch:
 
-			switch Msg.MsgType  {
+			switch Msg.MsgType {
 
-				case network.NewOrder:
-					handleNewOrder(elevatorMap, &Msg.Elevator, &thisElevator)
-					elevStatusUpdate_ch <- thisElevator
-				
-				case network.OrderCompleted:
+			case network.NewOrder:
+				handleNewOrder(elevatorMap, &Msg.Elevator, &thisElevator)
+				elevStatusUpdate_ch <- thisElevator
+
+			case network.OrderCompleted:
+				handleOrderCompleted(elevatorMap, &Msg.Elevator, &thisElevator)
+				elevStatusUpdate_ch <- thisElevator
+
+			case network.StateUpdate:
+				// Midlertidig løsning for packetloss ved slukking av lys, dette kan være kilde til bus, men funker fett nå (merk at vi alltid setter order counter til å være det vi får inn)
+				if Msg.Elevator != elevatorMap[Msg.Elevator.Id] {
 					handleOrderCompleted(elevatorMap, &Msg.Elevator, &thisElevator)
 					elevStatusUpdate_ch <- thisElevator
-				
-				case network.StateUpdate:
-				// Midlertidig løsning for packetloss ved slukking av lys, dette kan være kilde til bus, men funker fett nå (merk at vi alltid setter order counter til å være det vi får inn)
-					if Msg.Elevator != elevatorMap[Msg.Elevator.Id] {
-						handleOrderCompleted(elevatorMap, &Msg.Elevator, &thisElevator)
-						elevStatusUpdate_ch <- thisElevator
-					} 
-					elevatorMap[Msg.Elevator.Id] = Msg.Elevator	
-			}	
+				}
+				elevatorMap[Msg.Elevator.Id] = Msg.Elevator
+			}
 
-		case <- periodicUpdate_ch:
-			msg  := network.Msg{
-				MsgType: network.StateUpdate,
-				Elevator: thisElevator, 
+		case <-periodicUpdate_ch:
+			msg := network.Msg{
+				MsgType:  network.StateUpdate,
+				Elevator: thisElevator,
 			}
 			networkUpdateTx_ch <- msg
 
 		case peerUpdate := <-peerUpdate_ch:
-			if len(peerUpdate.Lost) != 0{
-				handlePeerupdate(peerUpdate,&thisElevator,&elevatorMap, &hallRequestsMap)
+			if len(peerUpdate.Lost) != 0 {
+				handlePeerupdate(peerUpdate, &thisElevator, &elevatorMap, &hallRequestsMap)
 				hallRequestsMap := hallrequestassigner.AssignHallRequests(elevatorMap)
 				setLightMatrix(hallRequestsMap, &thisElevator)
 				thisElevator.Requests = elevatorMap[thisElevator.Id].Requests
@@ -101,10 +100,6 @@ func Infobank_FSM(
 		}
 	}
 }
-
-
-
-
 
 func setElevatorMap(newAssignmentsMap map[string][4][2]bool, elevatorMap *map[string]elevator.Elevator) {
 
@@ -119,7 +114,6 @@ func setElevatorMap(newAssignmentsMap map[string][4][2]bool, elevatorMap *map[st
 	}
 }
 
-
 func setAllLights(e *elevator.Elevator) {
 	for floor := 0; floor < elevator.N_FLOORS; floor++ {
 		for btn := 0; btn < elevator.N_BUTTONS; btn++ {
@@ -128,16 +122,14 @@ func setAllLights(e *elevator.Elevator) {
 	}
 }
 
-
-func PeriodicUpdate(periodicUpdate_ch chan bool){
-	for{
+func PeriodicUpdate(periodicUpdate_ch chan bool) {
+	for {
 		time.Sleep(1000 * time.Millisecond)
 		periodicUpdate_ch <- true
 	}
 }
 
-
-func handlePeerupdate(peerUpdate network.PeerUpdate, thisElevator *elevator.Elevator, elevatorMap *map[string]elevator.Elevator, newAssignmentsMap *map[string][4][2]bool){
+func handlePeerupdate(peerUpdate network.PeerUpdate, thisElevator *elevator.Elevator, elevatorMap *map[string]elevator.Elevator, newAssignmentsMap *map[string][4][2]bool) {
 
 	for i := 0; i < len(peerUpdate.Lost); i++ {
 		for j := 0; j < elevator.N_FLOORS; j++ {
@@ -146,31 +138,31 @@ func handlePeerupdate(peerUpdate network.PeerUpdate, thisElevator *elevator.Elev
 			}
 		}
 		delete(*elevatorMap, peerUpdate.Lost[i])
-		delete(*newAssignmentsMap,peerUpdate.Lost[i])
-		thisElevator.OrderCounter++ 
+		delete(*newAssignmentsMap, peerUpdate.Lost[i])
+		thisElevator.OrderCounter++
 	}
 	(*elevatorMap)[thisElevator.Id] = *thisElevator
 
 	//Nå må vi redistrubiere requests og fjerne
 }
 
-func handleBtnPress(elevatorMap map[string]elevator.Elevator, e *elevator.Elevator){
+func handleBtnPress(elevatorMap map[string]elevator.Elevator, e *elevator.Elevator) {
 	elevatorMap[e.Id] = *e
-	hallRequestsMap  := hallrequestassigner.AssignHallRequests(elevatorMap)
+	hallRequestsMap := hallrequestassigner.AssignHallRequests(elevatorMap)
 
-	setElevatorMap(hallRequestsMap, &elevatorMap)	
+	setElevatorMap(hallRequestsMap, &elevatorMap)
 	setElevatorAsignments(elevatorMap, e)
 	setLightMatrix(hallRequestsMap, e)
 
 }
 
-func handleNewOrder(elevatorMap map[string]elevator.Elevator, recievedElevator *elevator.Elevator, thisElevator *elevator.Elevator){
+func handleNewOrder(elevatorMap map[string]elevator.Elevator, recievedElevator *elevator.Elevator, thisElevator *elevator.Elevator) {
 	thisElevator.OrderCounter = recievedElevator.OrderCounter
 
 	elevatorMap[recievedElevator.Id] = *recievedElevator
-	hallRequestsMap  := hallrequestassigner.AssignHallRequests(elevatorMap)
-	
-	setElevatorMap(hallRequestsMap, &elevatorMap)	
+	hallRequestsMap := hallrequestassigner.AssignHallRequests(elevatorMap)
+
+	setElevatorMap(hallRequestsMap, &elevatorMap)
 	setElevatorAsignments(elevatorMap, thisElevator)
 	setLightMatrix(hallRequestsMap, thisElevator)
 
@@ -178,7 +170,7 @@ func handleNewOrder(elevatorMap map[string]elevator.Elevator, recievedElevator *
 
 }
 
-func handleOrderCompleted(elevatorMap map[string]elevator.Elevator, recievedElevator *elevator.Elevator, thisElevator *elevator.Elevator){
+func handleOrderCompleted(elevatorMap map[string]elevator.Elevator, recievedElevator *elevator.Elevator, thisElevator *elevator.Elevator) {
 	elevatorMap[recievedElevator.Id] = *recievedElevator
 
 	for i := 0; i < elevator.N_FLOORS; i++ {
@@ -193,13 +185,12 @@ func handleOrderCompleted(elevatorMap map[string]elevator.Elevator, recievedElev
 
 }
 
-
-func storeFsmUpdate(elevatorMap map[string] elevator.Elevator, oldState *elevator.Elevator, newState *elevator.Elevator){
+func storeFsmUpdate(elevatorMap map[string]elevator.Elevator, oldState *elevator.Elevator, newState *elevator.Elevator) {
 	if newState.Id != oldState.Id {
 		fmt.Printf("error: trying to assign values to non similar Id's \n")
 		return
 	}
-	
+
 	elevatorMap[oldState.Id] = *newState
 	*oldState = *newState
 }
@@ -210,7 +201,6 @@ func calculateMsgType(newState elevator.Elevator, oldState elevator.Elevator) ne
 	}
 	return network.StateUpdate
 }
-
 
 func setLightMatrix(newAssignmentsMap map[string][4][2]bool, e *elevator.Elevator) {
 	for _, value := range newAssignmentsMap {
@@ -223,11 +213,9 @@ func setLightMatrix(newAssignmentsMap map[string][4][2]bool, e *elevator.Elevato
 	}
 }
 
-func setElevatorAsignments(elevatorMap map[string] elevator.Elevator, e *elevator.Elevator){
+func setElevatorAsignments(elevatorMap map[string]elevator.Elevator, e *elevator.Elevator) {
 	e.Requests = elevatorMap[e.Id].Requests
 }
-
-
 
 //Vi må oppdage om en heis som ikke står i idle og ikke har tom request matrise og har stått stille lenge og behandle det
 //Vi må også oppdage om en heis ikke har sendt melding på en stund
