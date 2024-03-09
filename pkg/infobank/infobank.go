@@ -1,19 +1,22 @@
 package infobank
 
 import (
+	"fmt"
 	"time"
 
 	"project.com/pkg/elevator"
 	"project.com/pkg/hallrequestassigner"
+	"project.com/pkg/network"
 )
 
 func Infobank_FSM(
 	elevStatusUpdate_ch chan elevator.Elevator,
 	networkUpdateTx_ch chan elevator.Elevator,
 	networkUpdateRx_ch chan elevator.Elevator,
+	peerUpdate_ch chan network.PeerUpdate,
 ) {
 
-	button_ch := make(chan elevator.ButtonEvent, 10)
+	button_ch := make(chan elevator.ButtonEvent, 50)
 	go elevator.PollButtons(button_ch)
 
 	elevatorMap := make(map[string]elevator.Elevator)
@@ -25,7 +28,7 @@ func Infobank_FSM(
 	elevatorMap[thisElevator.Id] = thisElevator
 	var hallRequestsMap map[string][4][2]bool
 
-	periodicUpdate_ch:= make(chan bool,10)
+	periodicUpdate_ch:= make(chan bool,50)
 	go PeriodicUpdate(periodicUpdate_ch)
 
 
@@ -85,7 +88,19 @@ func Infobank_FSM(
 			}
 		case <- periodicUpdate_ch:
 			networkUpdateTx_ch <- thisElevator
+
+		case peerUpdate := <-peerUpdate_ch:
+			if len(peerUpdate.Lost) != 0{
+				handlePeerupdate(peerUpdate,&thisElevator,&elevatorMap, &hallRequestsMap)
+				hallrequestassigner.AssignHallRequests(elevatorMap, &hallRequestsMap)
+				setLights(hallRequestsMap, &thisElevator)
+				thisElevator.Requests = elevatorMap[thisElevator.Id].Requests
+				elevStatusUpdate_ch <- thisElevator
+				fmt.Printf("\n", elevatorMap)
+			}
 		}
+
+
 	}
 }
 
@@ -138,7 +153,36 @@ func setAllLights(e *elevator.Elevator) {
 
 func PeriodicUpdate(periodicUpdate_ch chan bool){
 	for{
-		time.Sleep(2000 * time.Millisecond)
+		time.Sleep(5000 * time.Millisecond)
 		periodicUpdate_ch <- true
 	}
 }
+
+
+func handlePeerupdate(peerUpdate network.PeerUpdate, thisElevator *elevator.Elevator, elevatorMap *map[string]elevator.Elevator, newAssignmentsMap *map[string][4][2]bool){
+	fmt.Printf("\n Her skal skal vi overføre requestst!")
+	fmt.Printf("\n Denne heisens requests er: ", thisElevator.Requests)
+	fmt.Printf("\n Heisen vi mister sin   er: ", (*elevatorMap)[peerUpdate.Lost[0]].Requests)
+
+
+	for i := 0; i < len(peerUpdate.Lost); i++ {
+		for j := 0; j < elevator.N_FLOORS; j++ {
+			for k := 0; k < elevator.N_BUTTONS-1; k++ {
+				thisElevator.Requests[j][k] = thisElevator.Requests[j][k] || (*elevatorMap)[peerUpdate.Lost[i]].Requests[j][k]
+			}
+		}
+		delete(*elevatorMap, peerUpdate.Lost[i])
+		delete(*newAssignmentsMap,peerUpdate.Lost[i])
+		//fmt.Printf("\n" , thisElevator.OrderCounter)
+		thisElevator.OrderCounter++ 
+	}
+	(*elevatorMap)[thisElevator.Id] = *thisElevator
+	fmt.Printf("\n Den samlede matrisen er nå: ", thisElevator.Requests)
+
+	//Nå må vi redistrubiere requests og fjerne
+}
+
+
+//Vi må oppdage om en heis som ikke står i idle og ikke har tok request matris har stått stille lenge og behandle det
+//Vi må også oppdage om en heis ikke har sendt melding på en stund
+// Legg logikk for å melde seg selv av nettverk når vi oppdager vi er fucked
