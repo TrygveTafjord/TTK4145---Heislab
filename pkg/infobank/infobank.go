@@ -160,10 +160,6 @@ func PeriodicUpdate(periodicUpdate_ch chan bool){
 
 
 func handlePeerupdate(peerUpdate network.PeerUpdate, thisElevator *elevator.Elevator, elevatorMap *map[string]elevator.Elevator, newAssignmentsMap *map[string][4][2]bool){
-	fmt.Printf("\n Her skal skal vi overføre requestst!")
-	fmt.Printf("\n Denne heisens requests er: ", thisElevator.Requests)
-	fmt.Printf("\n Heisen vi mister sin   er: ", (*elevatorMap)[peerUpdate.Lost[0]].Requests)
-
 
 	for i := 0; i < len(peerUpdate.Lost); i++ {
 		for j := 0; j < elevator.N_FLOORS; j++ {
@@ -173,11 +169,9 @@ func handlePeerupdate(peerUpdate network.PeerUpdate, thisElevator *elevator.Elev
 		}
 		delete(*elevatorMap, peerUpdate.Lost[i])
 		delete(*newAssignmentsMap,peerUpdate.Lost[i])
-		//fmt.Printf("\n" , thisElevator.OrderCounter)
 		thisElevator.OrderCounter++ 
 	}
 	(*elevatorMap)[thisElevator.Id] = *thisElevator
-	fmt.Printf("\n Den samlede matrisen er nå: ", thisElevator.Requests)
 
 	//Nå må vi redistrubiere requests og fjerne
 }
