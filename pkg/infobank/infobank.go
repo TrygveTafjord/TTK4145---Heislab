@@ -177,6 +177,6 @@ func handlePeerupdate(peerUpdate network.PeerUpdate, thisElevator *elevator.Elev
 }
 
 
-//Vi må oppdage om en heis som ikke står i idle og ikke har tok request matris har stått stille lenge og behandle det
+//Vi må oppdage om en heis som ikke står i idle og ikke har tom request matrise og har stått stille lenge og behandle det
 //Vi må også oppdage om en heis ikke har sendt melding på en stund
 // Legg logikk for å melde seg selv av nettverk når vi oppdager vi er fucked
