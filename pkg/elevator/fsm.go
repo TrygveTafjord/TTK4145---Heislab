@@ -1,13 +1,12 @@
 package elevator
 
 import (
-
-	//"fmt"
+	"fmt"
 
 	"project.com/pkg/timer"
 )
 
-func FSM(elevStatusUpdate_ch chan Elevator, init_ch chan Elevator) {
+func FSM(elevStatusUpdate_ch chan Elevator) {
 
 	floorSensor_ch := make(chan int)
 	stopButton_ch := make(chan bool)
@@ -20,10 +19,11 @@ func FSM(elevStatusUpdate_ch chan Elevator, init_ch chan Elevator) {
 	go PollObstructionSwitch(obstruction_ch)
 
 	elevator := new(Elevator)
-	*elevator = <-init_ch
+
+	*elevator = <-elevStatusUpdate_ch
+	fmt.Printf("motat status i FSM\n")
 
 	obstruction := GetObstruction()
-
 
 	for {
 		select {
@@ -45,7 +45,6 @@ func FSM(elevStatusUpdate_ch chan Elevator, init_ch chan Elevator) {
 				setAllLights(elevator)
 			}
 
-			//if should clear_light (Infobank vet alle rede at lyset er fjernet, vi trenger ikke sende den informasjonen)
 
 		case newFloor := <-floorSensor_ch:
 			fsmOnFloorArrival(elevator, newFloor, timer_ch, elevStatusUpdate_ch)

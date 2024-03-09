@@ -4,11 +4,10 @@ import (
 	"fmt"
 
 	//"time"
-
-	"project.com/pkg/elevator"
+	
 )
 
-func Network_fsm(networkUpdateTx_ch chan elevator.Elevator, networkUpdateRx_ch chan elevator.Elevator, peerUpdate_ch chan PeerUpdate) {
+func Network_fsm(networkUpdateTx_ch chan Msg, networkUpdateRx_ch chan Msg, peerUpdate_ch chan PeerUpdate) {
 
 	id, err := LocalIP()
 	if err != nil {
@@ -17,8 +16,8 @@ func Network_fsm(networkUpdateTx_ch chan elevator.Elevator, networkUpdateRx_ch c
 
 	peerUpdateCh := make(chan PeerUpdate,5)
 	peerTxEnable := make(chan bool,5)
-	networkTx := make(chan elevator.Elevator, 5)
-	networkRx := make(chan elevator.Elevator, 5)
+	networkTx := make(chan Msg, 5)
+	networkRx := make(chan Msg, 5)
 
 	
 
@@ -37,7 +36,7 @@ func Network_fsm(networkUpdateTx_ch chan elevator.Elevator, networkUpdateRx_ch c
 			fmt.Printf("  Lost:     %q\n", p.Lost)
 			
 		case a := <-networkRx:
-			if a.Id != id {
+			if a.Elevator.Id != id {
 
 				networkUpdateRx_ch <- a
 
