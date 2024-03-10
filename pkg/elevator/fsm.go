@@ -2,6 +2,7 @@ package elevator
 
 import (
 	"fmt"
+	"time"
 
 	"project.com/pkg/timer"
 )
@@ -12,17 +13,17 @@ func FSM(elevStatusUpdate_ch chan Elevator) {
 	stopButton_ch := make(chan bool)
 	obstruction_ch := make(chan bool)
 	timer_ch := make(chan bool)
+	selfCheck_ch := make(chan bool)
 
 
 	go PollFloorSensor(floorSensor_ch)
 	go PollStopButton(stopButton_ch)
 	go PollObstructionSwitch(obstruction_ch)
+	go PeriodicCheck(selfCheck_ch)
 
 	elevator := new(Elevator)
-
 	*elevator = <-elevStatusUpdate_ch
-	fmt.Printf("motat status i FSM\n")
-
+	prevelevator := *elevator
 	obstruction := GetObstruction()
 
 	for {
@@ -59,6 +60,13 @@ func FSM(elevStatusUpdate_ch chan Elevator) {
 				go timer.Run_timer(3, timer_ch)
 			}
 			obstruction = obstr
+
+		case <-selfCheck_ch:
+			kill:= Selfdiagnose(elevator, &prevelevator)
+			if kill {
+				fmt.Printf("\n Selfdestruct")
+				//Logikk for å koble oss av nettet
+			}
 		}
 	}
 }
@@ -152,4 +160,56 @@ func setAllLights(e *Elevator) {
 			SetButtonLamp(ButtonType(btn), floor, e.Lights[floor][btn])
 		}
 	}
+}
+
+
+func PeriodicCheck(selfCheck_ch chan bool){
+	for {
+		time.Sleep(1000 * time.Millisecond)
+		selfCheck_ch <- true
+	}
+}
+
+
+
+func Selfdiagnose(elevator *Elevator, prevElevator *Elevator)bool{
+	hasRequests := Check_request(*elevator)
+
+	if hasRequests && elevator.Behaviour == prevElevator.Behaviour{
+
+		switch elevator.Behaviour {
+		case EB_Idle:
+			return true
+		case EB_DoorOpen:
+			if elevator.Floor == prevElevator.Floor {
+				elevator.similarity+= 1
+			}
+		case EB_Moving:
+			if elevator.Floor == prevElevator.Floor {
+				elevator.similarity+=1
+				}
+		}
+
+		if prevElevator.similarity == 15 {
+			return true
+		}
+	}else{
+		elevator.similarity = 0
+	}
+	*prevElevator = *elevator
+	return false
+}
+
+
+
+func Check_request(elevator Elevator)bool{
+	for i := 0; i < N_FLOORS; i++ {
+		for j := 0; j < N_BUTTONS; j++ {
+			if elevator.Requests[i][j] == true{
+	
+				return true
+			}
+		}
+	}
+	return false
 }
