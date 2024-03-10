@@ -30,6 +30,8 @@ func FSM(elevStatusUpdate_ch chan Elevator) {
 		select {
 
 		case newElev := <-elevStatusUpdate_ch:
+			fmt.Printf("Mottat newElev \n")
+
 
 			if newElev.OrderCounter > elevator.OrderCounter {
 				elevator.Requests = newElev.Requests

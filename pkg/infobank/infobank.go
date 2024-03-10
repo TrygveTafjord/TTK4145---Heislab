@@ -3,6 +3,9 @@ package infobank
 import (
 	"fmt"
 	"time"
+	"encoding/csv"
+	"os"
+	"strconv"
 
 	"project.com/pkg/elevator"
 	"project.com/pkg/hallrequestassigner"
@@ -49,7 +52,8 @@ func Infobank_FSM(
 			elevStatusUpdate_ch <- thisElevator
 
 		case newState := <-elevStatusUpdate_ch:
-
+			
+			saveCabCallsToFile(thisElevator)
 			storeFsmUpdate(elevatorMap, &thisElevator, &newState)
 			msgType := calculateMsgType(newState, thisElevator)
 
@@ -221,3 +225,39 @@ func setElevatorAsignments(elevatorMap map[string]elevator.Elevator, e *elevator
 //Vi må oppdage om en heis som ikke står i idle og ikke har tom request matrise og har stått stille lenge og behandle det
 //Vi må også oppdage om en heis ikke har sendt melding på en stund
 // Legg logikk for å melde seg selv av nettverk når vi oppdager vi er fucked
+
+func saveCabCallsToFile(e elevator.Elevator){
+	data := e.Requests
+	filename := e.Id
+	
+	file, err := os.Create(filename)
+    if err != nil {
+        fmt.Printf("Failed to open file: %v", err)
+    }
+
+    defer file.Close()
+
+	writer := csv.NewWriter(file)
+
+	for _, row := range data {
+		cabReq := row[2]
+
+		if cabReq{
+			if err := writer.Write([]string{"true"}); err != nil {
+				fmt.Printf("Failed to write to CSV: %v", err)
+		}
+		}else{
+			if err := writer.Write([]string{"false"}); err != nil {
+				fmt.Printf("Failed to write to CSV: %v", err)
+		} 
+	}
+	}
+	if err := writer.Write([]string{ "OCC:" + strconv.Itoa(e.OrderClearedCounter)}); err != nil {
+		fmt.Printf("Failed to write to CSV: %v", err)
+	}
+
+	if err := writer.Write([]string{ "OC:" + strconv.Itoa(e.OrderCounter)}); err != nil {
+		fmt.Printf("Failed to write to CSV: %v", err)
+	}
+	writer.Flush()
+}
