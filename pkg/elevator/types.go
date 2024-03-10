@@ -23,5 +23,5 @@ type Elevator struct {
 	Requests            [N_FLOORS][N_BUTTONS]bool
 	Lights              [N_FLOORS][N_BUTTONS]bool
 	Behaviour           ElevatorBehaviour
-	Stop_time           float64
+	similarity			int
 }
