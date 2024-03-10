@@ -21,10 +21,10 @@ func Network_fsm(networkUpdateTx_ch chan Msg, networkUpdateRx_ch chan Msg, peerU
 
 	
 
-	go TransmitterPeers(15650, id, peerTxEnable)
-	go ReceiverPeers(15650, peerUpdateCh)
-	go TransmitterBcast(20025, networkTx)
-	go ReceiverBcast(20025, networkRx)
+	go TransmitterPeers(15651, id, peerTxEnable)
+	go ReceiverPeers(15651, peerUpdateCh)
+	go TransmitterBcast(20026, networkTx)
+	go ReceiverBcast(20026, networkRx)
 
 	for {
 		select {

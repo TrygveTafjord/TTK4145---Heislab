@@ -18,6 +18,8 @@ func Infobank_FSM(
 
 	button_ch := make(chan elevator.ButtonEvent, 50)
 	periodicUpdate_ch := make(chan bool, 50)
+	orderConfirmed_ch := make(chan bool)
+
 
 	go elevator.PollButtons(button_ch)
 	go PeriodicUpdate(periodicUpdate_ch)
@@ -31,15 +33,15 @@ func Infobank_FSM(
 		select {
 		case btn := <-button_ch:
 
-			thisElevator.Requests[btn.Floor][btn.Button] = true
-			thisElevator.OrderCounter++
+			go confirmationCycleFSM(networkUpdateTx_ch, networkUpdateRx_ch, btn, orderConfirmed_ch, elevatorMap, thisElevator)
 
-			msg := network.Msg{
-				MsgType:  network.NewOrder,
-				Elevator: thisElevator,
+			if !<-orderConfirmed_ch {
+				fmt.Printf("Order not confirmed! \n")
+				break
 			}
 
-			networkUpdateTx_ch <- msg
+			thisElevator.Requests[btn.Floor][btn.Button] = true
+			thisElevator.OrderCounter++
 
 			handleBtnPress(elevatorMap, &thisElevator)
 
@@ -57,25 +59,36 @@ func Infobank_FSM(
 
 			networkUpdateTx_ch <- msg
 
-		case Msg := <-networkUpdateRx_ch:
+		case msg := <-networkUpdateRx_ch:
 
-			switch Msg.MsgType {
+			switch msg.MsgType {
 
 			case network.NewOrder:
-				handleNewOrder(elevatorMap, &Msg.Elevator, &thisElevator)
+
+				go confirmFSM(networkUpdateTx_ch, networkUpdateRx_ch, orderConfirmed_ch, elevatorMap, thisElevator)
+				
+				confirmed := <-orderConfirmed_ch
+				fmt.Printf("confirmed order! \n")
+
+				if !confirmed {
+					fmt.Printf("Order not confirmed! \n")
+					break
+				}
+
+				handleNewOrder(elevatorMap, &msg.Elevator, &thisElevator)
 				elevStatusUpdate_ch <- thisElevator
 
 			case network.OrderCompleted:
-				handleOrderCompleted(elevatorMap, &Msg.Elevator, &thisElevator)
+				handleOrderCompleted(elevatorMap, &msg.Elevator, &thisElevator)
 				elevStatusUpdate_ch <- thisElevator
 
 			case network.StateUpdate:
 				// Midlertidig løsning for packetloss ved slukking av lys, dette kan være kilde til bus, men funker fett nå (merk at vi alltid setter order counter til å være det vi får inn)
-				if Msg.Elevator != elevatorMap[Msg.Elevator.Id] {
-					handleOrderCompleted(elevatorMap, &Msg.Elevator, &thisElevator)
+				if msg.Elevator != elevatorMap[msg.Elevator.Id] {
+					handleOrderCompleted(elevatorMap, &msg.Elevator, &thisElevator)
 					elevStatusUpdate_ch <- thisElevator
 				}
-				elevatorMap[Msg.Elevator.Id] = Msg.Elevator
+				elevatorMap[msg.Elevator.Id] = msg.Elevator
 			}
 
 		case <-periodicUpdate_ch:
