@@ -23,10 +23,7 @@ func Infobank_FSM(
 	go PeriodicUpdate(periodicUpdate_ch)
 
 	elevatorMap := make(map[string]elevator.Elevator)
-	hallRequestsMap := make(map[string][4][2]bool)
-	var thisElevator elevator.Elevator
-
-	thisElevator = <-elevStatusUpdate_ch
+	var thisElevator elevator.Elevator = <-elevStatusUpdate_ch
 
 	elevatorMap[thisElevator.Id] = thisElevator
 
@@ -90,7 +87,8 @@ func Infobank_FSM(
 
 		case peerUpdate := <-peerUpdate_ch:
 			if len(peerUpdate.Lost) != 0 {
-				handlePeerupdate(peerUpdate, &thisElevator, &elevatorMap, &hallRequestsMap)
+				hallRequests := make(map[string][4][2]bool)
+				handlePeerupdate(peerUpdate, &thisElevator, &elevatorMap, &hallRequests)
 				hallRequestsMap := hallrequestassigner.AssignHallRequests(elevatorMap)
 				setLightMatrix(hallRequestsMap, &thisElevator)
 				thisElevator.Requests = elevatorMap[thisElevator.Id].Requests
