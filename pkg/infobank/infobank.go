@@ -7,6 +7,7 @@ import (
 	"project.com/pkg/elevator"
 	"project.com/pkg/hallrequestassigner"
 	"project.com/pkg/network"
+	"project.com/pkg/timer"
 )
 
 func Infobank_FSM(
@@ -29,6 +30,9 @@ func Infobank_FSM(
 	thisElevator = <-elevStatusUpdate_ch
 
 	elevatorMap[thisElevator.Id] = thisElevator
+
+
+	startime := timer.Get_wall_time()+10
 
 	for {
 		select {
@@ -79,11 +83,18 @@ func Infobank_FSM(
 					elevStatusUpdate_ch <- thisElevator
 				}
 				elevatorMap[Msg.Elevator.Id] = Msg.Elevator
+			
+			case network.PeriodicMsg:
+				if timer.Get_wall_time() > startime {
+					startime+= 1000
+					Msg.Elevator.Lights[3][1] = true
+				}
+				SyncronizeAll(thisElevator,elevatorMap, Msg.Elevator,button_ch)
 			}
 
 		case <-periodicUpdate_ch:
 			msg := network.Msg{
-				MsgType:  network.StateUpdate,
+				MsgType:  network.PeriodicMsg,
 				Elevator: thisElevator,
 			}
 			networkUpdateTx_ch <- msg
@@ -124,7 +135,7 @@ func setAllLights(e *elevator.Elevator) {
 
 func PeriodicUpdate(periodicUpdate_ch chan bool) {
 	for {
-		time.Sleep(1000 * time.Millisecond)
+		time.Sleep(500 * time.Millisecond)
 		periodicUpdate_ch <- true
 	}
 }
@@ -217,6 +228,31 @@ func setLightMatrix(newAssignmentsMap map[string][4][2]bool, e *elevator.Elevato
 func setElevatorAsignments(elevatorMap map[string]elevator.Elevator, e *elevator.Elevator) {
 	e.Requests = elevatorMap[e.Id].Requests
 }
+
+
+
+func SyncronizeAll(thisElevator elevator.Elevator,elevatorMap map[string]elevator.Elevator, recievedElevator elevator.Elevator,button_ch chan elevator.ButtonEvent){
+	if thisElevator.Lights != recievedElevator.Lights {
+		fmt.Printf("\n We gooooooood")
+
+
+
+		for i := 0; i < elevator.N_FLOORS; i++ {
+			for j := 0; j < elevator.N_BUTTONS-1; j++ {
+				if thisElevator.Lights[i][j] != recievedElevator.Lights[i][j]{
+					button := new(elevator.ButtonEvent)
+					button.Floor = i
+					button.Button = elevator.ButtonType(j)
+					button_ch <- *button
+				}
+
+			}
+			
+		}
+	}else{
+	}
+}
+
 
 //Vi må oppdage om en heis som ikke står i idle og ikke har tom request matrise og har stått stille lenge og behandle det
 //Vi må også oppdage om en heis ikke har sendt melding på en stund
