@@ -6,29 +6,35 @@ import (
 	"os"
 	"os/exec"
 	"time"
+
 	"project.com/pkg/elevator"
 	"project.com/pkg/infobank"
 	"project.com/pkg/network"
 )
 
-
 const (
-	heartbeatSleep = 500
+	heartbeatSleep_ms = 500
+	deadLine_ms       = 5 * heartbeatSleep_ms
+	numberOfFloors    = 4
+	bufSize           = 50
 )
 
-
-
-func startBackupProcess (port string) {
-	fmt.Print("I get here")
-	exec.Command("gnome-terminal", "--", "go", "run", "main.go", port).Run() 	
+func main() {
+	backupProcess()
 }
 
-func primaryProcess (lastID string, port string, udpSendAddr string) {
+func startBackupProcess(port string) {
+	exec.Command("gnome-terminal", "--", "go", "run", "main.go", port).Start()
+}
+
+func primaryProcess(lastID string, udpSendAddr string) {
+
 	sendUDPAddr, err := net.ResolveUDPAddr("udp", udpSendAddr)
 	if err != nil {
 		fmt.Println(err)
 		return
 	}
+
 	conn, err := net.DialUDP("udp", nil, sendUDPAddr)
 	if err != nil {
 		fmt.Println(err)
@@ -36,17 +42,8 @@ func primaryProcess (lastID string, port string, udpSendAddr string) {
 	}
 	defer conn.Close()
 
-
-	elevStatusUpdate_ch := make(chan elevator.Elevator, 50)
-	networkUpdateTx_ch := make(chan network.Msg, 50)
-	networkUpdateRx_ch := make(chan network.Msg, 50)
-	peerUpdate_ch := make(chan network.PeerUpdate,50)
-
-	go elevator.FSM(elevStatusUpdate_ch)
-	go infobank.Infobank_FSM(elevStatusUpdate_ch, networkUpdateTx_ch, networkUpdateRx_ch, peerUpdate_ch)
-	go network.Network_fsm(networkUpdateTx_ch, networkUpdateRx_ch, peerUpdate_ch)
-	ID, err := network.LocalIP()
-
+	//"Main logic"
+	ID, elevStatusUpdate_ch := prepareSystem()
 	elevator.ElevatorInit(elevStatusUpdate_ch, lastID, ID)
 
 	for {
@@ -56,22 +53,14 @@ func primaryProcess (lastID string, port string, udpSendAddr string) {
 			fmt.Println("Primary failed to send heartbeat:", err)
 			return
 		}
-		time.Sleep(heartbeatSleep * time.Millisecond)
+		time.Sleep(heartbeatSleep_ms * time.Millisecond)
 	}
-
 }
 
-func backupProcess(){
-	fmt.Printf("---------BACKUP PHASE---------\n")
-
-	args := os.Args
-	fmt.Println(args)
-	port := args[1]
-	fmt.Printf("PORT: %v", port)
+func backupProcess() {
+	port := os.Args[len(os.Args)-1] //Port is always last element of command line input
 	udpReceiveAddr := ":" + port
 	udpSendAddr := "255.255.255.255" + udpReceiveAddr
-
-	
 
 	receiveUDPAddr, err := net.ResolveUDPAddr("udp", udpReceiveAddr)
 	if err != nil {
@@ -87,29 +76,21 @@ func backupProcess(){
 
 	defer conn.Close()
 
-	elevator.Init("localhost:"+port, 4)
-	
-	if err != nil {
-		fmt.Printf("could not get IP")
-	}
+	elevator.Init("localhost:"+port, numberOfFloors)
 
+	buffer := make([]byte, 1024)
 	var lastID string
-
 	for {
-		buffer := make([]byte, 1024)
-		conn.SetReadDeadline(time.Now().Add(heartbeatSleep * 5 * time.Millisecond))
+		conn.SetReadDeadline(time.Now().Add(deadLine_ms * time.Millisecond))
 		n, _, err := conn.ReadFromUDP(buffer)
-
-
-		fmt.Printf("The heartbeat i receive is %v \n and it is of length: %v" , lastID, len(lastID))
 
 		if err == nil {
 			lastID = string(buffer[:n])
-		}else{
+		} else {
 			if e, ok := err.(net.Error); ok && e.Timeout() {
 				conn.Close()
 				startBackupProcess(port)
-				primaryProcess(lastID, port, udpSendAddr)
+				primaryProcess(lastID, udpSendAddr)
 				return
 			} else {
 				fmt.Println("Error reading from UDP:", err)
@@ -119,7 +100,16 @@ func backupProcess(){
 	}
 }
 
+func prepareSystem() (ID string, elevStatusUpdate_ch chan elevator.Elevator) {
+	elevStatusUpdate_ch = make(chan elevator.Elevator, bufSize)
+	networkUpdateTx_ch := make(chan network.Msg, bufSize)
+	networkUpdateRx_ch := make(chan network.Msg, bufSize)
+	peerUpdate_ch := make(chan network.PeerUpdate, bufSize)
 
-func main() {
-	backupProcess()
+	go elevator.FSM(elevStatusUpdate_ch)
+	go infobank.Infobank_FSM(elevStatusUpdate_ch, networkUpdateTx_ch, networkUpdateRx_ch, peerUpdate_ch)
+	go network.Network_fsm(networkUpdateTx_ch, networkUpdateRx_ch, peerUpdate_ch)
+	ID, _ = network.LocalIP()
+
+	return ID, elevStatusUpdate_ch
 }
