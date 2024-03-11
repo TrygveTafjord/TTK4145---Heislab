@@ -15,7 +15,6 @@ func FSM(elevStatusUpdate_ch chan Elevator) {
 	timer_ch := make(chan bool)
 	selfCheck_ch := make(chan bool)
 
-
 	go PollFloorSensor(floorSensor_ch)
 	go PollStopButton(stopButton_ch)
 	go PollObstructionSwitch(obstruction_ch)
@@ -23,48 +22,53 @@ func FSM(elevStatusUpdate_ch chan Elevator) {
 
 	elevator := new(Elevator)
 	*elevator = <-elevStatusUpdate_ch
+	fmt.Print("I get past the first elevator channel")
 	prevelevator := *elevator
 	obstruction := GetObstruction()
 
 	for {
+		fmt.Print("I enter the for loop")
 		select {
 
 		case newElev := <-elevStatusUpdate_ch:
 			fmt.Printf("Mottat newElev \n")
 
-
 			if newElev.OrderCounter > elevator.OrderCounter {
+				fmt.Print("I get into the block that makes shit happen \n")
 				elevator.Requests = newElev.Requests
 				elevator.Lights = newElev.Lights
 				elevator.OrderCounter = newElev.OrderCounter
 				fsmNewAssignments(elevator, timer_ch)
 				elevStatusUpdate_ch <- *elevator
-			} 
-
+			}
 
 			elevator.Lights = newElev.Lights
 			elevator.OrderClearedCounter = newElev.OrderClearedCounter
 			setAllLights(elevator)
 
-
 		case newFloor := <-floorSensor_ch:
+			fmt.Print("I enter floor sensor")
 			fsmOnFloorArrival(elevator, newFloor, timer_ch, elevStatusUpdate_ch)
 			elevStatusUpdate_ch <- *elevator
 
 		case <-stopButton_ch:
+			fmt.Print("I enter stop button")
 			HandleStopButtonPressed(elevator)
 		case <-timer_ch:
+			fmt.Print("I enter timer channel")
 			HandleDeparture(elevator, timer_ch, obstruction)
 			elevStatusUpdate_ch <- *elevator
 
 		case obstr := <-obstruction_ch:
-			if (!obstr && elevator.Behaviour == EB_DoorOpen) {
+			fmt.Print("I enter obstruction")
+			if !obstr && elevator.Behaviour == EB_DoorOpen {
 				go timer.Run_timer(3, timer_ch)
 			}
 			obstruction = obstr
 
 		case <-selfCheck_ch:
-			kill:= Selfdiagnose(elevator, &prevelevator)
+			fmt.Print("I enter self check")
+			kill := Selfdiagnose(elevator, &prevelevator)
 			if kill {
 				fmt.Printf("\n Selfdestruct")
 				//Logikk for å koble oss av nettet
@@ -74,9 +78,9 @@ func FSM(elevStatusUpdate_ch chan Elevator) {
 }
 
 func HandleDeparture(e *Elevator, timer_ch chan bool, obstruction bool) {
-	if(obstruction && e.Behaviour == EB_DoorOpen){
+	if obstruction && e.Behaviour == EB_DoorOpen {
 		go timer.Run_timer(3, timer_ch)
-	}else{
+	} else {
 		e.Dirn, e.Behaviour = GetDirectionAndBehaviour(e)
 
 		switch e.Behaviour {
@@ -115,7 +119,7 @@ func fsmOnFloorArrival(e *Elevator, newFloor int, timer_ch chan bool, elevStatus
 }
 
 func fsmNewAssignments(e *Elevator, timer_ch chan bool) {
-		// Her mistenker jeg det kommer bugs -Per 08.03
+	// Her mistenker jeg det kommer bugs -Per 08.03
 	if e.Behaviour == EB_DoorOpen {
 		if requests_shouldClearImmediately(*e) {
 
@@ -164,51 +168,44 @@ func setAllLights(e *Elevator) {
 	}
 }
 
-
-func PeriodicCheck(selfCheck_ch chan bool){
+func PeriodicCheck(selfCheck_ch chan bool) {
 	for {
 		time.Sleep(1000 * time.Millisecond)
 		selfCheck_ch <- true
 	}
 }
 
-
-
-func Selfdiagnose(elevator *Elevator, prevElevator *Elevator)bool{
+func Selfdiagnose(elevator *Elevator, prevElevator *Elevator) bool {
 	hasRequests := Check_request(*elevator)
 
-	if hasRequests && elevator.Behaviour == prevElevator.Behaviour{
+	if hasRequests && elevator.Behaviour == prevElevator.Behaviour {
 
 		switch elevator.Behaviour {
 		case EB_Idle:
-			return true
 		case EB_DoorOpen:
 			if elevator.Floor == prevElevator.Floor {
-				elevator.similarity+= 1
+				elevator.similarity += 1
 			}
 		case EB_Moving:
 			if elevator.Floor == prevElevator.Floor {
-				elevator.similarity+=1
-				}
+				elevator.similarity += 1
+			}
 		}
 
 		if prevElevator.similarity == 15 {
 			return true
 		}
-	}else{
+	} else {
 		elevator.similarity = 0
 	}
 	*prevElevator = *elevator
 	return false
 }
 
-
-
-func Check_request(elevator Elevator)bool{
+func Check_request(elevator Elevator) bool {
 	for i := 0; i < N_FLOORS; i++ {
 		for j := 0; j < N_BUTTONS; j++ {
-			if elevator.Requests[i][j] == true{
-	
+			if elevator.Requests[i][j] {
 				return true
 			}
 		}

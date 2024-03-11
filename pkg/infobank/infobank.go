@@ -1,11 +1,11 @@
 package infobank
 
 import (
-	"fmt"
-	"time"
 	"encoding/csv"
+	"fmt"
 	"os"
 	"strconv"
+	"time"
 
 	"project.com/pkg/elevator"
 	"project.com/pkg/hallrequestassigner"
@@ -27,9 +27,7 @@ func Infobank_FSM(
 
 	elevatorMap := make(map[string]elevator.Elevator)
 	hallRequestsMap := make(map[string][4][2]bool)
-	var thisElevator elevator.Elevator
-
-	thisElevator = <-elevStatusUpdate_ch
+	thisElevator := <-elevStatusUpdate_ch
 
 	elevatorMap[thisElevator.Id] = thisElevator
 
@@ -52,8 +50,12 @@ func Infobank_FSM(
 			elevStatusUpdate_ch <- thisElevator
 
 		case newState := <-elevStatusUpdate_ch:
-			
-			saveCabCallsToFile(thisElevator)
+
+			err := saveCabCallsToFile(thisElevator)
+			if err != nil {
+				fmt.Printf("Failed to write to CSV file. \n")
+			}
+
 			storeFsmUpdate(elevatorMap, &thisElevator, &newState)
 			msgType := calculateMsgType(newState, thisElevator)
 
@@ -99,7 +101,6 @@ func Infobank_FSM(
 				setLightMatrix(hallRequestsMap, &thisElevator)
 				thisElevator.Requests = elevatorMap[thisElevator.Id].Requests
 				elevStatusUpdate_ch <- thisElevator
-				fmt.Printf("\n", elevatorMap)
 			}
 		}
 	}
@@ -115,14 +116,6 @@ func setElevatorMap(newAssignmentsMap map[string][4][2]bool, elevatorMap *map[st
 			}
 		}
 		(*elevatorMap)[id] = tempElev
-	}
-}
-
-func setAllLights(e *elevator.Elevator) {
-	for floor := 0; floor < elevator.N_FLOORS; floor++ {
-		for btn := 0; btn < elevator.N_BUTTONS; btn++ {
-			elevator.SetButtonLamp(elevator.ButtonType(btn), floor, e.Lights[floor][btn])
-		}
 	}
 }
 
@@ -189,7 +182,6 @@ func handleOrderCompleted(elevatorMap map[string]elevator.Elevator, recievedElev
 
 }
 
-
 func storeFsmUpdate(elevatorMap map[string]elevator.Elevator, oldState *elevator.Elevator, newState *elevator.Elevator) {
 	if newState.Id != oldState.Id {
 		fmt.Printf("error: trying to assign values to non similar Id's \n")
@@ -226,38 +218,46 @@ func setElevatorAsignments(elevatorMap map[string]elevator.Elevator, e *elevator
 //Vi må også oppdage om en heis ikke har sendt melding på en stund
 // Legg logikk for å melde seg selv av nettverk når vi oppdager vi er fucked
 
-func saveCabCallsToFile(e elevator.Elevator){
-	data := e.Requests
+func saveCabCallsToFile(e elevator.Elevator) error {
+	requests := e.Requests
 	filename := e.Id
-	
-	file, err := os.Create(filename)
-    if err != nil {
-        fmt.Printf("Failed to open file: %v", err)
-    }
+	behaviour := e.Behaviour
 
-    defer file.Close()
+	file, err := os.Create(filename)
+	if err != nil {
+		fmt.Printf("Failed to open file: %v", err)
+	}
+
+	defer file.Close()
 
 	writer := csv.NewWriter(file)
 
-	for _, row := range data {
+	var records [][]string
+	for _, row := range requests {
 		cabReq := row[2]
+		records = append(records, []string{boolToString(cabReq)})
+	}
 
-		if cabReq{
-			if err := writer.Write([]string{"true"}); err != nil {
-				fmt.Printf("Failed to write to CSV: %v", err)
+	records = append(records, []string{"OCC:" + strconv.Itoa(e.OrderClearedCounter)})
+	records = append(records, []string{"OC:" + strconv.Itoa(e.OrderCounter)})
+	records = append(records, []string{"BH:" + strconv.Itoa(int(behaviour))})
+
+	for _, record := range records {
+		if err := writer.Write(record); err != nil {
+			return fmt.Errorf("failed to write to CSV: %v", err)
 		}
-		}else{
-			if err := writer.Write([]string{"false"}); err != nil {
-				fmt.Printf("Failed to write to CSV: %v", err)
-		} 
-	}
-	}
-	if err := writer.Write([]string{ "OCC:" + strconv.Itoa(e.OrderClearedCounter)}); err != nil {
-		fmt.Printf("Failed to write to CSV: %v", err)
 	}
 
-	if err := writer.Write([]string{ "OC:" + strconv.Itoa(e.OrderCounter)}); err != nil {
-		fmt.Printf("Failed to write to CSV: %v", err)
-	}
 	writer.Flush()
+	return nil
+
+}
+
+func boolToString(value bool) string {
+
+	if value {
+		return "true"
+	} else {
+		return "false"
+	}
 }

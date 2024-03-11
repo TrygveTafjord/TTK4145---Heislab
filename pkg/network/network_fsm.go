@@ -2,9 +2,7 @@ package network
 
 import (
 	"fmt"
-
 	//"time"
-	
 )
 
 func Network_fsm(networkUpdateTx_ch chan Msg, networkUpdateRx_ch chan Msg, peerUpdate_ch chan PeerUpdate) {
@@ -14,17 +12,15 @@ func Network_fsm(networkUpdateTx_ch chan Msg, networkUpdateRx_ch chan Msg, peerU
 		fmt.Printf("could not get IP")
 	}
 
-	peerUpdateCh := make(chan PeerUpdate,5)
-	peerTxEnable := make(chan bool,5)
+	peerUpdateCh := make(chan PeerUpdate, 5)
+	peerTxEnable := make(chan bool, 5)
 	networkTx := make(chan Msg, 5)
 	networkRx := make(chan Msg, 5)
 
-	
-
-	go TransmitterPeers(15650, id, peerTxEnable)
-	go ReceiverPeers(15650, peerUpdateCh)
-	go TransmitterBcast(20025, networkTx)
-	go ReceiverBcast(20025, networkRx)
+	go TransmitterPeers(15653, id, peerTxEnable)
+	go ReceiverPeers(15653, peerUpdateCh)
+	go TransmitterBcast(20029, networkTx)
+	go ReceiverBcast(20029, networkRx)
 
 	for {
 		select {
@@ -34,7 +30,7 @@ func Network_fsm(networkUpdateTx_ch chan Msg, networkUpdateRx_ch chan Msg, peerU
 			fmt.Printf("  Peers:    %q\n", p.Peers)
 			fmt.Printf("  New:      %q\n", p.New)
 			fmt.Printf("  Lost:     %q\n", p.Lost)
-			
+
 		case a := <-networkRx:
 			if a.Elevator.Id != id {
 
