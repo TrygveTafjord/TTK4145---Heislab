@@ -7,7 +7,7 @@ import (
 	"project.com/pkg/elevator"
 	"project.com/pkg/hallrequestassigner"
 	"project.com/pkg/network"
-	"project.com/pkg/timer"
+	//"project.com/pkg/timer"
 )
 
 func Infobank_FSM(
@@ -32,11 +32,12 @@ func Infobank_FSM(
 	elevatorMap[thisElevator.Id] = thisElevator
 
 
-	startime := timer.Get_wall_time()+10
+	//startime := timer.Get_wall_time()+10 
 
 	for {
 		select {
 		case btn := <-button_ch:
+			fmt.Printf("")
 
 			thisElevator.Requests[btn.Floor][btn.Button] = true
 			thisElevator.OrderCounter++
@@ -85,10 +86,20 @@ func Infobank_FSM(
 				elevatorMap[Msg.Elevator.Id] = Msg.Elevator
 			
 			case network.PeriodicMsg:
+				/*
 				if timer.Get_wall_time() > startime {
+					
+					
 					startime+= 1000
-					Msg.Elevator.Lights[3][1] = true
+					thisElevator.Requests[3][1] = true
+					Msg.Elevator.Lights[1][0] = true
+					Msg.Elevator.Lights[2][0] = true
+					thisElevator.Requests[2][1] = true
+					elevatorMap[thisElevator.Id] = thisElevator
+					
 				}
+				*/
+			
 				SyncronizeAll(thisElevator,elevatorMap, Msg.Elevator,button_ch)
 			}
 
@@ -119,6 +130,7 @@ func setElevatorMap(newAssignmentsMap map[string][4][2]bool, elevatorMap *map[st
 		for i := 0; i < elevator.N_FLOORS; i++ {
 			for j := 0; j < elevator.N_BUTTONS-1; j++ {
 				tempElev.Requests[i][j] = requests[i][j]
+				//fmt.Printf("\n Senderr button")
 			}
 		}
 		(*elevatorMap)[id] = tempElev
@@ -232,11 +244,19 @@ func setElevatorAsignments(elevatorMap map[string]elevator.Elevator, e *elevator
 
 
 func SyncronizeAll(thisElevator elevator.Elevator,elevatorMap map[string]elevator.Elevator, recievedElevator elevator.Elevator,button_ch chan elevator.ButtonEvent){
-	if thisElevator.Lights != recievedElevator.Lights {
-		fmt.Printf("\n We gooooooood")
-
-
-
+	combinedrequests := thisElevator.Requests
+	
+	for _,e := range(elevatorMap){
+		for i := 0; i < elevator.N_FLOORS; i++ {
+			for j := 0; j < elevator.N_BUTTONS-1; j++ {
+				combinedrequests[i][j] = combinedrequests[i][j] || e.Requests[i][j]
+			}
+		}
+	}
+	
+	
+	
+	if thisElevator.Lights != recievedElevator.Lights || thisElevator.Lights != combinedrequests {
 		for i := 0; i < elevator.N_FLOORS; i++ {
 			for j := 0; j < elevator.N_BUTTONS-1; j++ {
 				if thisElevator.Lights[i][j] != recievedElevator.Lights[i][j]{
@@ -244,12 +264,18 @@ func SyncronizeAll(thisElevator elevator.Elevator,elevatorMap map[string]elevato
 					button.Floor = i
 					button.Button = elevator.ButtonType(j)
 					button_ch <- *button
-				}
+					thisElevator.OrderCounter = recievedElevator.OrderCounter+1
+				}else if combinedrequests[i][j] != thisElevator.Lights[i][j]{
+					button := new(elevator.ButtonEvent)
+					button.Floor = i
+					button.Button = elevator.ButtonType(j)
+					button_ch <- *button
+					thisElevator.OrderCounter = recievedElevator.OrderCounter+1
 
+				}
 			}
 			
 		}
-	}else{
 	}
 }
 
