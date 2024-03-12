@@ -7,7 +7,7 @@ func ElevatorInit(elevStatusUpdate_ch chan Elevator, Id string) {
 	e.Id = Id
 	e.OrderClearedCounter = 0
 	e.OrderCounter = 0
-	e.similarity = 0
+	e.Standstill = 0
 
 	floor := GetFloor()
 
