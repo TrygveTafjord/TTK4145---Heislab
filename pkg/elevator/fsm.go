@@ -62,10 +62,18 @@ func FSM(elevStatusUpdate_ch chan Elevator) {
 			obstruction = obstr
 
 		case <-selfCheck_ch:
-			kill:= Selfdiagnose(elevator, &prevelevator)
-			if kill {
-				fmt.Printf("\n Selfdestruct")
-				//Logikk for å koble oss av nettet
+			diagnose := Selfdiagnose(elevator, &prevelevator, obstruction)
+			switch diagnose{
+				case Healthy:
+					elevator.Obstructed = false
+				case Obstructed:
+					elevator.Obstructed = true
+					elevStatusUpdate_ch <- *elevator
+				case MotorProblem:
+					//Reboot
+				case Other:
+					//Reboot
+
 			}
 		}
 	}
@@ -113,7 +121,6 @@ func fsmOnFloorArrival(e *Elevator, newFloor int, timer_ch chan bool, elevStatus
 }
 
 func fsmNewAssignments(e *Elevator, timer_ch chan bool) {
-		// Her mistenker jeg det kommer bugs -Per 08.03
 	if e.Behaviour == EB_DoorOpen {
 		if requests_shouldClearImmediately(*e) {
 
@@ -172,14 +179,18 @@ func PeriodicCheck(selfCheck_ch chan bool){
 
 
 
-func Selfdiagnose(elevator *Elevator, prevElevator *Elevator)bool{
+
+
+func Selfdiagnose(elevator *Elevator, prevElevator *Elevator, obstruction bool)Diagnose {
 	hasRequests := Check_request(*elevator)
 
 	if hasRequests && elevator.Behaviour == prevElevator.Behaviour{
 
 		switch elevator.Behaviour {
 		case EB_Idle:
-			return true
+			*prevElevator = *elevator
+			return Other
+
 		case EB_DoorOpen:
 			if elevator.Floor == prevElevator.Floor {
 				elevator.Standstill+= 1
@@ -189,17 +200,24 @@ func Selfdiagnose(elevator *Elevator, prevElevator *Elevator)bool{
 				elevator.Standstill+=1
 				}
 		}
+		*prevElevator = *elevator
 
-		if prevElevator.Standstill == 15 {
-			return true
+
+
+		if elevator.Standstill > 10 &&  obstruction{
+			return Obstructed
+		} else if prevElevator.Standstill == 20 && !obstruction {
+			return MotorProblem
 		}
+			
+
 	}else{
 		elevator.Standstill = 0
-	}
-	*prevElevator = *elevator
-	return false
-}
+		*prevElevator = *elevator
 
+	}
+	return Healthy
+}
 
 
 func Check_request(elevator Elevator)bool{
