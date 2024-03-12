@@ -51,7 +51,6 @@ func Infobank_FSM(
 			toFSM_ch <- thisElevator
 
 		case newState := <-fromFSM_ch:
-			fmt.Printf("Right before i am written to the file, my direction is %v", newState.Dirn)
 			err := saveCabCallsToFile(newState)
 			if err != nil {
 				fmt.Printf("Failed to write to CSV file. \n")
@@ -84,7 +83,6 @@ func Infobank_FSM(
 				if Msg.Elevator != elevatorMap[Msg.Elevator.Id] {
 					handleOrderCompleted(elevatorMap, &Msg.Elevator, &thisElevator)
 					toFSM_ch <- thisElevator
-					fmt.Print("I send a message from the network channel place")
 				}
 				elevatorMap[Msg.Elevator.Id] = Msg.Elevator
 			}

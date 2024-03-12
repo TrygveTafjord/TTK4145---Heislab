@@ -97,8 +97,6 @@ func backupProcess() {
 		conn.SetReadDeadline(time.Now().Add(heartbeatSleep * 5 * time.Millisecond))
 		n, _, err := conn.ReadFromUDP(buffer)
 
-		fmt.Printf("The heartbeat i receive is %v \n and it is of length: %v", lastID, len(lastID))
-
 		if err == nil {
 			lastID = string(buffer[:n])
 		} else {

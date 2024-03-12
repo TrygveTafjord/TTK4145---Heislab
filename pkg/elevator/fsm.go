@@ -22,17 +22,13 @@ func FSM(fromInfobank_ch chan Elevator, toInfobank_ch chan Elevator, elevInitFSM
 
 	elevator := new(Elevator)
 	*elevator = <-elevInitFSM_ch
-	fmt.Printf("FSM was initted \n")
 	prevelevator := *elevator
 	obstruction := GetObstruction()
 
 	for {
 		select {
 		case newElev := <- fromInfobank_ch:
-			fmt.Print("Mottat newElev in FSM \n")
-			fmt.Printf("I get into the block that makes shit happen and here the newElev has an OC of %v and an OCC of %v \n", newElev.OrderCounter, newElev.OrderClearedCounter) 
-			fmt.Printf("while the local elevator has an OC of %v and an OCC of %v \n", elevator.OrderCounter, elevator.OrderClearedCounter)
-			if newElev.OrderCounter > elevator.OrderCounter {
+				if newElev.OrderCounter > elevator.OrderCounter {
 				elevator.Requests = newElev.Requests
 				elevator.Lights = newElev.Lights
 				elevator.OrderCounter = newElev.OrderCounter
@@ -100,9 +96,7 @@ func fsmOnFloorArrival(e *Elevator, newFloor int, timer_ch chan bool) {
 	setAllLights(e)
 	switch e.Behaviour {
 	case EB_Moving:
-		fmt.Print("I know i am moving")
 		if requestShouldStop(*e) {
-			fmt.Print("It says we should stop!! \n ")
 			SetMotorDirection(MD_Stop)
 			e.Dirn = MD_Stop // Ole added march 12, needed for re-init
 			SetDoorOpenLamp(true)
@@ -158,8 +152,8 @@ func HandleStopButtonPressed(e *Elevator) {
 
 func setAllLights(e *Elevator) {
 	for floor := 0; floor < N_FLOORS; floor++ {
+		e.Lights[floor][BT_Cab] = e.Requests[floor][BT_Cab]
 		for btn := 0; btn < N_BUTTONS; btn++ {
-			//e.Lights[floor][btn] = e.Requests[floor][btn]
 			SetButtonLamp(ButtonType(btn), floor, e.Lights[floor][btn])
 		}
 	}
