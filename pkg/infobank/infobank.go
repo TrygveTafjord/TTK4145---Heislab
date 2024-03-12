@@ -13,7 +13,8 @@ import (
 )
 
 func Infobank_FSM(
-	elevStatusUpdate_ch chan elevator.Elevator,
+	toFSM_ch chan elevator.Elevator,
+	fromFSM_ch chan elevator.Elevator,
 	networkUpdateTx_ch chan network.Msg,
 	networkUpdateRx_ch chan network.Msg,
 	peerUpdate_ch chan network.PeerUpdate,
@@ -27,7 +28,7 @@ func Infobank_FSM(
 
 	elevatorMap := make(map[string]elevator.Elevator)
 	hallRequestsMap := make(map[string][4][2]bool)
-	thisElevator := <-elevStatusUpdate_ch
+	thisElevator := <-fromFSM_ch
 
 	elevatorMap[thisElevator.Id] = thisElevator
 
@@ -47,10 +48,10 @@ func Infobank_FSM(
 
 			handleBtnPress(elevatorMap, &thisElevator)
 
-			elevStatusUpdate_ch <- thisElevator
+			toFSM_ch <- thisElevator
 
-		case newState := <-elevStatusUpdate_ch:
-
+		case newState := <-fromFSM_ch:
+			fmt.Print("Infobank was updated \n")
 			err := saveCabCallsToFile(thisElevator)
 			if err != nil {
 				fmt.Printf("Failed to write to CSV file. \n")
@@ -72,17 +73,18 @@ func Infobank_FSM(
 
 			case network.NewOrder:
 				handleNewOrder(elevatorMap, &Msg.Elevator, &thisElevator)
-				elevStatusUpdate_ch <- thisElevator
+				toFSM_ch <- thisElevator
 
 			case network.OrderCompleted:
 				handleOrderCompleted(elevatorMap, &Msg.Elevator, &thisElevator)
-				elevStatusUpdate_ch <- thisElevator
+				toFSM_ch <- thisElevator
 
 			case network.StateUpdate:
 				// Midlertidig løsning for packetloss ved slukking av lys, dette kan være kilde til bus, men funker fett nå (merk at vi alltid setter order counter til å være det vi får inn)
 				if Msg.Elevator != elevatorMap[Msg.Elevator.Id] {
 					handleOrderCompleted(elevatorMap, &Msg.Elevator, &thisElevator)
-					elevStatusUpdate_ch <- thisElevator
+					toFSM_ch <- thisElevator
+					fmt.Print("I send a message from the network channel place")
 				}
 				elevatorMap[Msg.Elevator.Id] = Msg.Elevator
 			}
@@ -100,7 +102,7 @@ func Infobank_FSM(
 				hallRequestsMap := hallrequestassigner.AssignHallRequests(elevatorMap)
 				setLightMatrix(hallRequestsMap, &thisElevator)
 				thisElevator.Requests = elevatorMap[thisElevator.Id].Requests
-				elevStatusUpdate_ch <- thisElevator
+				toFSM_ch <- thisElevator
 			}
 		}
 	}

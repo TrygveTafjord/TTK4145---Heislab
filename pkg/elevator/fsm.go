@@ -7,7 +7,7 @@ import (
 	"project.com/pkg/timer"
 )
 
-func FSM(elevStatusUpdate_ch chan Elevator) {
+func FSM(fromInfobank_ch chan Elevator, toInfobank_ch chan Elevator, elevInitFSM_ch chan Elevator) {
 
 	floorSensor_ch := make(chan int)
 	stopButton_ch := make(chan bool)
@@ -21,43 +21,40 @@ func FSM(elevStatusUpdate_ch chan Elevator) {
 	go PeriodicCheck(selfCheck_ch)
 
 	elevator := new(Elevator)
-	*elevator = <-elevStatusUpdate_ch
-	fmt.Print("I get past the first elevator channel")
+	*elevator = <-elevInitFSM_ch
+	fmt.Printf("FSM was initted \n")
 	prevelevator := *elevator
 	obstruction := GetObstruction()
 
 	for {
-		fmt.Print("I enter the for loop")
 		select {
-
-		case newElev := <-elevStatusUpdate_ch:
-			fmt.Printf("Mottat newElev \n")
-
+		case newElev := <- fromInfobank_ch:
+			fmt.Print("Mottat newElev in FSM \n")
 			if newElev.OrderCounter > elevator.OrderCounter {
-				fmt.Print("I get into the block that makes shit happen \n")
+				fmt.Printf("I get into the block that makes shit happen and here the newElev has an OC of %v and an OCC of %v \n", newElev.OrderCounter, newElev.OrderClearedCounter) 
+				fmt.Printf("while the local elevator has an OC of %v and an OCC of %v \n", elevator.OrderCounter, elevator.OrderClearedCounter)
 				elevator.Requests = newElev.Requests
 				elevator.Lights = newElev.Lights
 				elevator.OrderCounter = newElev.OrderCounter
 				fsmNewAssignments(elevator, timer_ch)
-				elevStatusUpdate_ch <- *elevator
+				toInfobank_ch <- *elevator
 			}
-
 			elevator.Lights = newElev.Lights
 			elevator.OrderClearedCounter = newElev.OrderClearedCounter
 			setAllLights(elevator)
 
 		case newFloor := <-floorSensor_ch:
-			fmt.Print("I enter floor sensor")
-			fsmOnFloorArrival(elevator, newFloor, timer_ch, elevStatusUpdate_ch)
-			elevStatusUpdate_ch <- *elevator
+			fsmOnFloorArrival(elevator, newFloor, timer_ch)
+			fmt.Print("I updated infobank from newFloor \n")
+			toInfobank_ch <- *elevator
 
 		case <-stopButton_ch:
 			fmt.Print("I enter stop button")
 			HandleStopButtonPressed(elevator)
 		case <-timer_ch:
-			fmt.Print("I enter timer channel")
 			HandleDeparture(elevator, timer_ch, obstruction)
-			elevStatusUpdate_ch <- *elevator
+			fmt.Print("I updated infobank from timer \n")
+			toInfobank_ch <- *elevator
 
 		case obstr := <-obstruction_ch:
 			fmt.Print("I enter obstruction")
@@ -67,7 +64,6 @@ func FSM(elevStatusUpdate_ch chan Elevator) {
 			obstruction = obstr
 
 		case <-selfCheck_ch:
-			fmt.Print("I enter self check")
 			kill := Selfdiagnose(elevator, &prevelevator)
 			if kill {
 				fmt.Printf("\n Selfdestruct")
@@ -100,7 +96,7 @@ func HandleDeparture(e *Elevator, timer_ch chan bool, obstruction bool) {
 	}
 }
 
-func fsmOnFloorArrival(e *Elevator, newFloor int, timer_ch chan bool, elevStatusUpdate_ch chan Elevator) {
+func fsmOnFloorArrival(e *Elevator, newFloor int, timer_ch chan bool) {
 
 	e.Floor = newFloor
 	SetFloorIndicator(newFloor)
@@ -120,6 +116,7 @@ func fsmOnFloorArrival(e *Elevator, newFloor int, timer_ch chan bool, elevStatus
 
 func fsmNewAssignments(e *Elevator, timer_ch chan bool) {
 	// Her mistenker jeg det kommer bugs -Per 08.03
+	fmt.Print("I get to fsmNewAssignments")
 	if e.Behaviour == EB_DoorOpen {
 		if requests_shouldClearImmediately(*e) {
 

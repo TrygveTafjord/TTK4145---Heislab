@@ -67,14 +67,11 @@ import (
 	elevStatusUpdate_ch <- e
 }*/
 
-func ElevatorInit(elevStatusUpdate_ch chan Elevator, lastID string, ID string) {
+func ElevatorInit(toFSM_ch chan Elevator, elevInitFSM_ch chan Elevator, lastID string, ID string) {
 	var e Elevator
-	SetDoorOpenLamp(false)
 
 	e.Id = ID
 	e.similarity = 0
-
-	floor := GetFloor()
 
 	var cabCalls []bool
 
@@ -101,31 +98,23 @@ func ElevatorInit(elevStatusUpdate_ch chan Elevator, lastID string, ID string) {
 		}
 	}
 
-	fmt.Print("The finished order matrix is: \n")
-	for floor := 0; floor < 4; floor++ {
-		for btn := 0; btn < 3; btn++ {
-			fmt.Printf("%v", e.Requests[floor][btn])
-		}
-		fmt.Print("\n")
-	}
-
+	floor := GetFloor()
 	if floor == -1 {
 		SetMotorDirection(MD_Down)
+		fmt.Print("\n \n WAS NOT AT A FLOOR \n \n ")
 		for floor == -1 {
-			floor := GetFloor()
+			floor = GetFloor()
 			if floor != (-1) {
 				SetMotorDirection(MD_Stop)
 				break
 			}
 		}
 	}
-	elevStatusUpdate_ch <- e
 	e.Floor = floor
-	e.Dirn = MD_Stop
-	//Keeping door open functionality is fucked, dont mind it
-	e.Behaviour = EB_Idle
-	e.OrderCounter = 0
-	elevStatusUpdate_ch <- e
+	e.OrderCounter--
+	elevInitFSM_ch <- e
+	e.OrderCounter++
+	toFSM_ch <- e
 }
 
 func readCSV(previousID string) ([]bool, int, int, ElevatorBehaviour) {
@@ -141,7 +130,6 @@ func readCSV(previousID string) ([]bool, int, int, ElevatorBehaviour) {
 	records, _ := csvReader.ReadAll()
 
 	for i := 0; i < 4; i++ {
-		fmt.Printf("Record %d: %v\n", i, records[i][0])
 		if records[i][0] == "true" {
 			returnSlice = append(returnSlice, true)
 		} else {
