@@ -69,24 +69,28 @@ import (
 
 func ElevatorInit(toFSM_ch chan Elevator, elevInitFSM_ch chan Elevator, lastID string, ID string) {
 	var e Elevator
-
 	e.Id = ID
 	e.similarity = 0
 
 	var cabCalls []bool
+	var direction int
 
 	//reset buttons
 	if len(lastID) == 0 {
 		for floor := 0; floor < 4; floor++ {
 			for btn := 0; btn < 3; btn++ {
 				SetButtonLamp(ButtonType(btn), floor, false)
+				e.Requests[floor][btn] = false
+				e.Lights[floor][btn] = false
 			}
 		}
 		e.OrderClearedCounter = 0
 		e.OrderCounter = 0
+		e.Behaviour = EB_Idle
+
 	} else {
 
-		cabCalls, e.OrderClearedCounter, e.OrderCounter, e.Behaviour = readCSV(lastID)
+		cabCalls, e.OrderClearedCounter, e.OrderCounter, e.Behaviour, direction = readCSV(lastID)
 
 		for floor := 0; floor < 4; floor++ {
 			for btn := 0; btn < 2; btn++ {
@@ -98,9 +102,18 @@ func ElevatorInit(toFSM_ch chan Elevator, elevInitFSM_ch chan Elevator, lastID s
 		}
 	}
 
+	switch direction {
+    case 1:
+		e.Dirn = MD_Up
+    case -1:
+        e.Dirn = MD_Down
+    default:
+        e.Dirn = MD_Stop
+	}
+
 	floor := GetFloor()
 	if floor == -1 {
-		SetMotorDirection(MD_Down)
+		SetMotorDirection(e.Dirn)
 		fmt.Print("\n \n WAS NOT AT A FLOOR \n \n ")
 		for floor == -1 {
 			floor = GetFloor()
@@ -117,7 +130,7 @@ func ElevatorInit(toFSM_ch chan Elevator, elevInitFSM_ch chan Elevator, lastID s
 	toFSM_ch <- e
 }
 
-func readCSV(previousID string) ([]bool, int, int, ElevatorBehaviour) {
+func readCSV(previousID string) ([]bool, int, int, ElevatorBehaviour, int) {
 	file, err := os.Open(previousID)
 	if err != nil {
 		fmt.Printf("Failed to open file: %v\n", err)
@@ -150,7 +163,12 @@ func readCSV(previousID string) ([]bool, int, int, ElevatorBehaviour) {
 	index, _ := strconv.Atoi(BH[1])
 	behaviour := ElevatorBehaviour(index)
 
-	return returnSlice, orderClearCounter, orderCounter, behaviour
+	directionString := records[7][0]
+	DIR := strings.SplitN(directionString, ":", 2)
+	direction, _ := strconv.Atoi(DIR[1])
+	
+
+	return returnSlice, orderClearCounter, orderCounter, behaviour, direction
 }
 
 /*func isFirstProcess(prevID string) bool {

@@ -1,6 +1,6 @@
 package backup
 
-import (
+/*import (
 	"fmt"
 	"net"
 	"os"
@@ -95,10 +95,12 @@ func BackupProcess() {
 		buffer := make([]byte, 1024)
 		conn.SetReadDeadline(time.Now().Add(heartbeatSleep * 5 * time.Millisecond))
 		n, _, err := conn.ReadFromUDP(buffer)
+		fmt.Printf("The heartbeat is: %v", string(buffer))
 
 		if err == nil {
 			lastID = string(buffer[:n])
 		} else {
+			fmt.Printf("The error is: %v", err)
 			if e, ok := err.(net.Error); ok && e.Timeout() {
 				conn.Close()
 				startBackupProcess(port)
@@ -110,4 +112,4 @@ func BackupProcess() {
 			}
 		}
 	}
-}
+}*/

@@ -30,9 +30,9 @@ func FSM(fromInfobank_ch chan Elevator, toInfobank_ch chan Elevator, elevInitFSM
 		select {
 		case newElev := <- fromInfobank_ch:
 			fmt.Print("Mottat newElev in FSM \n")
+			fmt.Printf("I get into the block that makes shit happen and here the newElev has an OC of %v and an OCC of %v \n", newElev.OrderCounter, newElev.OrderClearedCounter) 
+			fmt.Printf("while the local elevator has an OC of %v and an OCC of %v \n", elevator.OrderCounter, elevator.OrderClearedCounter)
 			if newElev.OrderCounter > elevator.OrderCounter {
-				fmt.Printf("I get into the block that makes shit happen and here the newElev has an OC of %v and an OCC of %v \n", newElev.OrderCounter, newElev.OrderClearedCounter) 
-				fmt.Printf("while the local elevator has an OC of %v and an OCC of %v \n", elevator.OrderCounter, elevator.OrderClearedCounter)
 				elevator.Requests = newElev.Requests
 				elevator.Lights = newElev.Lights
 				elevator.OrderCounter = newElev.OrderCounter
@@ -45,19 +45,15 @@ func FSM(fromInfobank_ch chan Elevator, toInfobank_ch chan Elevator, elevInitFSM
 
 		case newFloor := <-floorSensor_ch:
 			fsmOnFloorArrival(elevator, newFloor, timer_ch)
-			fmt.Print("I updated infobank from newFloor \n")
 			toInfobank_ch <- *elevator
 
 		case <-stopButton_ch:
-			fmt.Print("I enter stop button")
 			HandleStopButtonPressed(elevator)
 		case <-timer_ch:
 			HandleDeparture(elevator, timer_ch, obstruction)
-			fmt.Print("I updated infobank from timer \n")
 			toInfobank_ch <- *elevator
 
 		case obstr := <-obstruction_ch:
-			fmt.Print("I enter obstruction")
 			if !obstr && elevator.Behaviour == EB_DoorOpen {
 				go timer.Run_timer(3, timer_ch)
 			}
@@ -100,10 +96,15 @@ func fsmOnFloorArrival(e *Elevator, newFloor int, timer_ch chan bool) {
 
 	e.Floor = newFloor
 	SetFloorIndicator(newFloor)
+	fmt.Printf("In fsmOnFloorArrival i think my behaviour is: %v \n", e.Behaviour)
+	setAllLights(e)
 	switch e.Behaviour {
 	case EB_Moving:
+		fmt.Print("I know i am moving")
 		if requestShouldStop(*e) {
+			fmt.Print("It says we should stop!! \n ")
 			SetMotorDirection(MD_Stop)
+			e.Dirn = MD_Stop // Ole added march 12, needed for re-init
 			SetDoorOpenLamp(true)
 			requests_clearAtCurrentFloor(e)
 			e.OrderClearedCounter++
@@ -116,7 +117,6 @@ func fsmOnFloorArrival(e *Elevator, newFloor int, timer_ch chan bool) {
 
 func fsmNewAssignments(e *Elevator, timer_ch chan bool) {
 	// Her mistenker jeg det kommer bugs -Per 08.03
-	fmt.Print("I get to fsmNewAssignments")
 	if e.Behaviour == EB_DoorOpen {
 		if requests_shouldClearImmediately(*e) {
 
@@ -131,7 +131,6 @@ func fsmNewAssignments(e *Elevator, timer_ch chan bool) {
 	}
 
 	e.Dirn, e.Behaviour = GetDirectionAndBehaviour(e)
-
 	switch e.Behaviour {
 
 	case EB_DoorOpen:
@@ -160,6 +159,7 @@ func HandleStopButtonPressed(e *Elevator) {
 func setAllLights(e *Elevator) {
 	for floor := 0; floor < N_FLOORS; floor++ {
 		for btn := 0; btn < N_BUTTONS; btn++ {
+			//e.Lights[floor][btn] = e.Requests[floor][btn]
 			SetButtonLamp(ButtonType(btn), floor, e.Lights[floor][btn])
 		}
 	}

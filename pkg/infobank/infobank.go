@@ -51,8 +51,8 @@ func Infobank_FSM(
 			toFSM_ch <- thisElevator
 
 		case newState := <-fromFSM_ch:
-			fmt.Print("Infobank was updated \n")
-			err := saveCabCallsToFile(thisElevator)
+			fmt.Printf("Right before i am written to the file, my direction is %v", newState.Dirn)
+			err := saveCabCallsToFile(newState)
 			if err != nil {
 				fmt.Printf("Failed to write to CSV file. \n")
 			}
@@ -223,7 +223,6 @@ func setElevatorAsignments(elevatorMap map[string]elevator.Elevator, e *elevator
 func saveCabCallsToFile(e elevator.Elevator) error {
 	requests := e.Requests
 	filename := e.Id
-	behaviour := e.Behaviour
 
 	file, err := os.Create(filename)
 	if err != nil {
@@ -242,7 +241,8 @@ func saveCabCallsToFile(e elevator.Elevator) error {
 
 	records = append(records, []string{"OCC:" + strconv.Itoa(e.OrderClearedCounter)})
 	records = append(records, []string{"OC:" + strconv.Itoa(e.OrderCounter)})
-	records = append(records, []string{"BH:" + strconv.Itoa(int(behaviour))})
+	records = append(records, []string{"BH:" + strconv.Itoa(int(e.Behaviour))})
+	records = append(records, []string{"DIR:" + strconv.Itoa(int(e.Dirn))})
 
 	for _, record := range records {
 		if err := writer.Write(record); err != nil {
