@@ -182,19 +182,19 @@ func Selfdiagnose(elevator *Elevator, prevElevator *Elevator)bool{
 			return true
 		case EB_DoorOpen:
 			if elevator.Floor == prevElevator.Floor {
-				elevator.similarity+= 1
+				elevator.Standstill+= 1
 			}
 		case EB_Moving:
 			if elevator.Floor == prevElevator.Floor {
-				elevator.similarity+=1
+				elevator.Standstill+=1
 				}
 		}
 
-		if prevElevator.similarity == 15 {
+		if prevElevator.Standstill == 15 {
 			return true
 		}
 	}else{
-		elevator.similarity = 0
+		elevator.Standstill = 0
 	}
 	*prevElevator = *elevator
 	return false
