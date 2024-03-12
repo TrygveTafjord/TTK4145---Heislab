@@ -8,7 +8,7 @@ import (
 )
 
 //assuming: [up, down, cab] in the 4x3 matrix that is requestst
-
+/*
 func AssignHallRequests(elevatorMap map[string]elevator.Elevator) map[string][4][2]bool {
 
 	elevatorList := make([]elevator.Elevator, 0, len(elevatorMap))
@@ -21,6 +21,48 @@ func AssignHallRequests(elevatorMap map[string]elevator.Elevator) map[string][4]
 	
 	return HallRequestAssigner(JSON)
 }
+*/
+func AssignHallRequests(elevatorMap map[string]elevator.Elevator) map[string][4][2]bool {
+	obstructedElevators := []string{}
+	unsolvedOrders := [4][2] bool{}
+	emptyOrdersOrders := [4][2] bool{}
+
+	for _, v := range elevatorMap {
+		if v.Obstructed {
+
+			obstructedElevators = append(obstructedElevators,v.Id)
+			for i := 0; i < elevator.N_FLOORS; i++ {
+				for j := 0; j < elevator.N_BUTTONS-1; j++ {
+					unsolvedOrders[i][j] = unsolvedOrders[i][j] || v.Requests[i][j]
+				}
+			}
+			delete(elevatorMap,v.Id)
+		}else{ /// Her er det smått feil
+			
+			for i := 0; i < elevator.N_FLOORS; i++ {
+				for j := 0; j < elevator.N_BUTTONS-1; j++ {
+				v.Requests[i][j] = v.Requests[i][j] || unsolvedOrders[i][j]
+				}
+			}
+			elevatorMap[v.Id] = v
+		}
+	}
+
+	elevatorList := make([]elevator.Elevator, 0, len(elevatorMap))
+
+	for _, v := range elevatorMap {
+		elevatorList = append(elevatorList, v)
+	}
+
+	JSON := CreateJSON(elevatorList...)
+	returnMap := HallRequestAssigner(JSON)
+
+	for _,Id := range obstructedElevators{
+		returnMap[Id] = emptyOrdersOrders
+	}
+	return returnMap
+}
+
 
 func CreateJSON(elevators ...elevator.Elevator) []byte {
 	hallRequests := generateHallRequests(elevators)
