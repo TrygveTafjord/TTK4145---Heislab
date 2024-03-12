@@ -24,4 +24,15 @@ type Elevator struct {
 	Lights              [N_FLOORS][N_BUTTONS]bool
 	Behaviour           ElevatorBehaviour
 	Standstill			int
+	Obstructed          bool
 }
+
+
+type Diagnose int
+
+const (
+	Healthy				Diagnose = iota
+	Obstructed			
+	MotorProblem
+	Other
+)
