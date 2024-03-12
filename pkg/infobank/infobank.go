@@ -55,8 +55,8 @@ func Infobank_FSM(
 
 		case newState := <-elevStatusUpdate_ch:
 
-			storeFsmUpdate(elevatorMap, &thisElevator, &newState)
 			msgType := calculateMsgType(newState, thisElevator)
+			storeFsmUpdate(elevatorMap, &thisElevator, &newState)
 
 			msg := network.Msg{
 				MsgType:  msgType,
