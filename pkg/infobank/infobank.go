@@ -50,18 +50,19 @@ func Infobank_FSM(
 			elevStatusUpdate_ch <- thisElevator
 
 		case newState := <-elevStatusUpdate_ch:
-		
+
 			msgType := calculateMsgType(newState, thisElevator)
+			storeFsmUpdate(elevatorMap, &thisElevator, &newState)
+
 			if msgType == network.ObstructedMsg {
 				evaluateRequests(elevatorMap, &thisElevator)
+				elevStatusUpdate_ch <- thisElevator
 			}
-			storeFsmUpdate(elevatorMap, &thisElevator, &newState)
 
 			msg := network.Msg{
 				MsgType:  msgType,
 				Elevator: thisElevator,
 			}
-			
 
 			networkUpdateTx_ch <- msg
 
@@ -89,7 +90,9 @@ func Infobank_FSM(
 				SyncronizeAll(thisElevator, elevatorMap, Msg.Elevator, button_ch)
 
 			case network.ObstructedMsg:
+
 				handleNewOrder(elevatorMap, &Msg.Elevator, &thisElevator)
+
 				elevStatusUpdate_ch <- thisElevator
 			}
 
@@ -171,6 +174,9 @@ func handleNewOrder(elevatorMap map[string]elevator.Elevator, recievedElevator *
 	thisElevator.OrderCounter = recievedElevator.OrderCounter
 
 	elevatorMap[recievedElevator.Id] = *recievedElevator
+	if recievedElevator.Obstructed {
+	} else {
+	}
 	hallRequestsMap := hallrequestassigner.AssignHallRequests(elevatorMap)
 
 	setElevatorMap(hallRequestsMap, &elevatorMap)
@@ -178,7 +184,6 @@ func handleNewOrder(elevatorMap map[string]elevator.Elevator, recievedElevator *
 	setLightMatrix(hallRequestsMap, thisElevator)
 
 	thisElevator.Requests = elevatorMap[thisElevator.Id].Requests
-
 }
 
 func handleOrderCompleted(elevatorMap map[string]elevator.Elevator, recievedElevator *elevator.Elevator, thisElevator *elevator.Elevator) {
@@ -264,4 +269,3 @@ func SyncronizeAll(thisElevator elevator.Elevator, elevatorMap map[string]elevat
 		}
 	}
 }
-

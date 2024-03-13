@@ -10,6 +10,7 @@ const (
 	StateUpdate    MsgType = 2
 	ConfirmedOrder MsgType = 3
 	PeriodicMsg    MsgType = 4
+	ObstructedMsg  MsgType = 5
 )
 
 type Msg struct {
