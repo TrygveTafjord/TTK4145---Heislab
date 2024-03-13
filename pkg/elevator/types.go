@@ -15,6 +15,28 @@ const (
 )
 
 type Elevator struct {
+	State    State
+	Requests [N_FLOORS][N_BUTTONS]bool
+	Lights   [N_FLOORS][N_BUTTONS]bool
+}
+
+type State struct {
+	Floor      int
+	Dirn       MotorDirection
+	Behaviour  ElevatorBehaviour
+	Obstructed bool
+}
+
+type Diagnose int
+
+const (
+	Healthy Diagnose = iota
+	Obstructed
+	Problem
+	Unchanged
+)
+
+type OldElevator struct {
 	Id                  string
 	OrderClearedCounter int
 	OrderCounter        int
@@ -23,17 +45,6 @@ type Elevator struct {
 	Requests            [N_FLOORS][N_BUTTONS]bool
 	Lights              [N_FLOORS][N_BUTTONS]bool
 	Behaviour           ElevatorBehaviour
-	Standstill			int
+	Standstill          int
 	Obstructed          bool
 }
-
-
-type Diagnose int
-
-const (
-	Healthy				Diagnose = iota
-	Obstructed			
-	Problem
-	Unchanged
-	
-)

@@ -16,7 +16,7 @@ const (
 	BT_Cab      ButtonType = 2
 )
 
-type ButtonEvent struct {
+type RequestEvent struct {
 	Floor  int
 	Button ButtonType
 }

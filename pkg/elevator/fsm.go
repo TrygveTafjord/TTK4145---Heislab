@@ -26,24 +26,28 @@ func FSM(fromInfobank_ch chan Elevator, toInfobank_ch chan Elevator, elevInitFSM
 	*elevator = <-elevInitFSM_ch
 	prevelevator := *elevator
 	obstruction := GetObstruction()
+	standstill := 0
 
 	for {
 		select {
-		case newElev := <-fromInfobank_ch:
-			if newElev.OrderCounter > elevator.OrderCounter {
-				elevator.Requests = newElev.Requests
-				elevator.Lights = newElev.Lights
-				elevator.OrderCounter = newElev.OrderCounter
-				fsmNewAssignments(elevator, timer_ch)
-				toInfobank_ch <- *elevator
-			}
-			elevator.Lights = newElev.Lights
-			elevator.OrderClearedCounter = newElev.OrderClearedCounter
+		case requests := <-requestUpdate_ch:
+			elevator.Requests = requests
+			fsmNewRequests(elevator, timer_ch)
+			stateToInfobank_ch <- elevator.State
+
+		case lights := <-lightUpdate_ch:
+			elevator.Lights = lights
 			setAllLights(elevator)
 
 		case newFloor := <-floorSensor_ch:
-			fsmOnFloorArrival(elevator, newFloor, timer_ch)
-			toInfobank_ch <- *elevator
+			
+			
+			ShouldStop := fsmOnFloorArrival(elevator, newFloor, timer_ch)
+			toInfobank_ch <- *elevator.S
+			if ShouldStop {
+				clearEvent-CH <- RequestEvent{newFloor, e.Dirn}
+			}
+			
 
 		case <-stopButton_ch:
 			HandleStopButtonPressed(elevator)
@@ -52,21 +56,19 @@ func FSM(fromInfobank_ch chan Elevator, toInfobank_ch chan Elevator, elevInitFSM
 			toInfobank_ch <- *elevator
 
 		case obstr := <-obstruction_ch:
-			if !obstr && elevator.Behaviour == EB_DoorOpen {
+			if !obstr && elevator.State.Behaviour == EB_DoorOpen {
 				go timer.Run_timer(3, timer_ch)
 			}
 			obstruction = obstr
 
 		case <-selfCheck_ch:
-			diagnose := Selfdiagnose(elevator, &prevelevator, obstruction)
+			diagnose := Selfdiagnose(elevator, &prevelevator, obstruction, &standstill)
 			switch diagnose {
 			case Healthy:
-				elevator.Obstructed = false
-				elevator.OrderCounter++
+				elevator.State.Obstructed = false
 				toInfobank_ch <- *elevator
 			case Obstructed:
-				elevator.Obstructed = true
-				elevator.OrderCounter++
+				elevator.State.Obstructed = true
 				toInfobank_ch <- *elevator
 			case Problem:
 				//Reboot
@@ -100,7 +102,7 @@ func HandleDeparture(e *Elevator, timer_ch chan bool, obstruction bool) {
 	}
 }
 
-func fsmOnFloorArrival(e *Elevator, newFloor int, timer_ch chan bool) {
+func fsmOnFloorArrival(e *Elevator, newFloor int, timer_ch chan bool) bool {
 
 	e.Floor = newFloor
 	SetFloorIndicator(newFloor)
@@ -113,21 +115,20 @@ func fsmOnFloorArrival(e *Elevator, newFloor int, timer_ch chan bool) {
 			//e.Dirn = MD_Stop // Ole added march 12, needed for re-init
 			SetDoorOpenLamp(true)
 			requests_clearAtCurrentFloor(e)
-			e.OrderClearedCounter++
 			go timer.Run_timer(3, timer_ch)
 			e.Behaviour = EB_DoorOpen
 			setAllLights(e)
+			return true
 		}
 	}
+	return false
 }
 
-func fsmNewAssignments(e *Elevator, timer_ch chan bool) {
+func fsmNewRequests(e *Elevator, timer_ch chan bool) {
 	if e.Behaviour == EB_DoorOpen {
 		if requests_shouldClearImmediately(*e) {
 
 			requests_clearAtCurrentFloor(e)
-
-			e.OrderClearedCounter++
 
 			go timer.Run_timer(3, timer_ch)
 		}
@@ -142,7 +143,6 @@ func fsmNewAssignments(e *Elevator, timer_ch chan bool) {
 		SetDoorOpenLamp(true)
 		go timer.Run_timer(3, timer_ch)
 		requests_clearAtCurrentFloor(e)
-		e.OrderClearedCounter++
 
 	case EB_Moving:
 		SetMotorDirection(e.Dirn)
@@ -177,7 +177,7 @@ func PeriodicCheck(selfCheck_ch chan bool) {
 	}
 }
 
-func Selfdiagnose(elevator *Elevator, prevElevator *Elevator, obstruction bool) Diagnose {
+func Selfdiagnose(elevator *Elevator, prevElevator *Elevator, obstruction bool, standstill *int) Diagnose {
 	hasRequests := Check_request(*elevator)
 
 	if hasRequests && elevator.Behaviour == prevElevator.Behaviour {
@@ -189,18 +189,18 @@ func Selfdiagnose(elevator *Elevator, prevElevator *Elevator, obstruction bool) 
 
 		case EB_DoorOpen:
 			if elevator.Floor == prevElevator.Floor {
-				elevator.Standstill += 1
+				*standstill += 1
 			}
 		case EB_Moving:
 			if elevator.Floor == prevElevator.Floor {
-				elevator.Standstill += 1
+				*standstill += 1
 			}
 		}
 		*prevElevator = *elevator
 
-		if elevator.Standstill > 10 && obstruction {
+		if *standstill > 10 && obstruction {
 			return Obstructed
-		} else if elevator.Standstill == 20 && !obstruction {
+		} else if *standstill == 20 && !obstruction {
 			return Problem
 		}
 
@@ -209,7 +209,7 @@ func Selfdiagnose(elevator *Elevator, prevElevator *Elevator, obstruction bool) 
 		return Unchanged
 
 	} else {
-		elevator.Standstill = 0
+		*standstill = 0
 		*prevElevator = *elevator
 	}
 	return Healthy
@@ -224,4 +224,11 @@ func Check_request(elevator Elevator) bool {
 		}
 	}
 	return false
+}
+
+type State struct {
+	Floor      int
+	Dirn       MotorDirection
+	Behaviour  ElevatorBehaviour
+	Obstructed bool
 }

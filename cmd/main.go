@@ -37,13 +37,13 @@ func primaryProcess(lastID string, port string, udpSendAddr string) {
 	FSMxInfoBank1_ch := make(chan elevator.Elevator, 50)
 	FSMxInfoBank2_ch := make(chan elevator.Elevator, 50)
 	elevInitFSM_ch := make(chan elevator.Elevator, 50)
-	networkUpdateTx_ch := make(chan network.Msg, 50)
-	networkUpdateRx_ch := make(chan network.Msg, 50)
-	peerUpdate_ch := make(chan network.PeerUpdate, 50)
+	//networkUpdateTx_ch := make(chan network.Msg, 50)
+	//networkUpdateRx_ch := make(chan network.Msg, 50)
+	//peerUpdate_ch := make(chan network.PeerUpdate, 50)
 
 	go elevator.FSM(FSMxInfoBank1_ch, FSMxInfoBank2_ch, elevInitFSM_ch)
-	go infobank.Infobank_FSM(FSMxInfoBank1_ch, FSMxInfoBank2_ch, networkUpdateTx_ch, networkUpdateRx_ch, peerUpdate_ch)
-	go network.Network_fsm(networkUpdateTx_ch, networkUpdateRx_ch, peerUpdate_ch)
+	//go infobank.Infobank_FSM(FSMxInfoBank1_ch, FSMxInfoBank2_ch, networkUpdateTx_ch, networkUpdateRx_ch, peerUpdate_ch)
+	//go network.Network_fsm(networkUpdateTx_ch, networkUpdateRx_ch, peerUpdate_ch)
 	ID, err := network.LocalIP()
 
 	elevator.ElevatorInit(FSMxInfoBank1_ch, elevInitFSM_ch, lastID, ID)

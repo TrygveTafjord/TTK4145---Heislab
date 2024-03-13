@@ -86,32 +86,32 @@ func GetDirectionAndBehaviour(e *Elevator) (MotorDirection, ElevatorBehaviour) {
 
 func requests_clearAtCurrentFloor(e *Elevator) {
 
-	e.Requests[e.Floor][BT_Cab] = false
-	e.Lights[e.Floor][BT_Cab] = false
+	e.Requests[e.State.Floor][BT_Cab] = false
+	e.Lights[e.State.Floor][BT_Cab] = false
 
-	switch e.Dirn {
+	switch e.State.Dirn {
 
 	case MD_Up:
-		if !requestsAbove(*e) && !(e.Requests[e.Floor][BT_HallUp]) {
-			e.Requests[e.Floor][BT_HallDown] = false
-			e.Lights[e.Floor][BT_HallDown] = false
+		if !requestsAbove(*e) && !(e.Requests[e.State.Floor][BT_HallUp]) {
+			e.Requests[e.State.Floor][BT_HallDown] = false
+			e.Lights[e.State.Floor][BT_HallDown] = false
 		}
-		e.Requests[e.Floor][BT_HallUp] = false
-		e.Lights[e.Floor][BT_HallUp] = false
+		e.Requests[e.State.Floor][BT_HallUp] = false
+		e.Lights[e.State.Floor][BT_HallUp] = false
 
 	case MD_Down:
-		if !requestsBelow(*e) && !(e.Requests[e.Floor][BT_HallDown]) {
-			e.Requests[e.Floor][BT_HallUp] = false
-			e.Lights[e.Floor][BT_HallUp] = false
+		if !requestsBelow(*e) && !(e.Requests[e.State.Floor][BT_HallDown]) {
+			e.Requests[e.State.Floor][BT_HallUp] = false
+			e.Lights[e.State.Floor][BT_HallUp] = false
 		}
 
-		e.Requests[e.Floor][BT_HallDown] = false
-		e.Lights[e.Floor][BT_HallDown] = false
+		e.Requests[e.State.Floor][BT_HallDown] = false
+		e.Lights[e.State.Floor][BT_HallDown] = false
 	default:
-		e.Requests[e.Floor][BT_HallUp] = false
-		e.Requests[e.Floor][BT_HallDown] = false
-		e.Lights[e.Floor][BT_HallUp] = false
-		e.Lights[e.Floor][BT_HallDown] = false
+		e.Requests[e.State.Floor][BT_HallUp] = false
+		e.Requests[e.State.Floor][BT_HallDown] = false
+		e.Lights[e.State.Floor][BT_HallUp] = false
+		e.Lights[e.State.Floor][BT_HallDown] = false
 	}
 }
 
