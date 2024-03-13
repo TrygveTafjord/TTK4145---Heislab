@@ -1,9 +1,5 @@
 package elevator
 
-import (
-	"fmt"
-)
-
 func requestsAbove(e Elevator) bool {
 	for flr := e.Floor + 1; flr < N_FLOORS; flr++ {
 		for btn := 0; btn < N_BUTTONS; btn++ {
@@ -122,13 +118,15 @@ func requests_clearAtCurrentFloor(e *Elevator) {
 }
 
 func requests_shouldClearImmediately(e Elevator) bool {
-
 	var buttonsPressed []ButtonEvent
 
 	for i := 0; i < N_BUTTONS; i++ {
 		if e.Requests[e.Floor][i] {
 			buttonsPressed = append(buttonsPressed, ButtonEvent{e.Floor, ButtonType(i)})
 		}
+	}
+	if GetObstruction() {
+		return false
 	}
 
 	for _, buttonevent := range buttonsPressed {

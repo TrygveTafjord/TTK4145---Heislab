@@ -23,5 +23,17 @@ type Elevator struct {
 	Requests            [N_FLOORS][N_BUTTONS]bool
 	Lights              [N_FLOORS][N_BUTTONS]bool
 	Behaviour           ElevatorBehaviour
-	similarity			int
+	Standstill			int
+	Obstructed          bool
 }
+
+
+type Diagnose int
+
+const (
+	Healthy				Diagnose = iota
+	Obstructed			
+	Problem
+	Unchanged
+	
+)

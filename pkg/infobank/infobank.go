@@ -10,6 +10,7 @@ import (
 	"project.com/pkg/elevator"
 	"project.com/pkg/hallrequestassigner"
 	"project.com/pkg/network"
+	//"project.com/pkg/timer"
 )
 
 func Infobank_FSM(
@@ -46,7 +47,7 @@ func Infobank_FSM(
 
 			networkUpdateTx_ch <- msg
 
-			handleBtnPress(elevatorMap, &thisElevator)
+			evaluateRequests(elevatorMap, &thisElevator)
 
 			toFSM_ch <- thisElevator
 
@@ -56,8 +57,13 @@ func Infobank_FSM(
 				fmt.Printf("Failed to write to CSV file. \n")
 			}
 
-			storeFsmUpdate(elevatorMap, &thisElevator, &newState)
 			msgType := calculateMsgType(newState, thisElevator)
+			storeFsmUpdate(elevatorMap, &thisElevator, &newState)
+
+			if msgType == network.ObstructedMsg {
+				evaluateRequests(elevatorMap, &thisElevator)
+				elevStatusUpdate_ch <- thisElevator
+			}
 
 			msg := network.Msg{
 				MsgType:  msgType,
@@ -85,11 +91,20 @@ func Infobank_FSM(
 					toFSM_ch <- thisElevator
 				}
 				elevatorMap[Msg.Elevator.Id] = Msg.Elevator
+
+			case network.PeriodicMsg:
+				SyncronizeAll(thisElevator, elevatorMap, Msg.Elevator, button_ch)
+
+			case network.ObstructedMsg:
+
+				handleNewOrder(elevatorMap, &Msg.Elevator, &thisElevator)
+
+				elevStatusUpdate_ch <- thisElevator
 			}
 
 		case <-periodicUpdate_ch:
 			msg := network.Msg{
-				MsgType:  network.StateUpdate,
+				MsgType:  network.PeriodicMsg,
 				Elevator: thisElevator,
 			}
 			networkUpdateTx_ch <- msg
@@ -121,7 +136,7 @@ func setElevatorMap(newAssignmentsMap map[string][4][2]bool, elevatorMap *map[st
 
 func PeriodicUpdate(periodicUpdate_ch chan bool) {
 	for {
-		time.Sleep(1000 * time.Millisecond)
+		time.Sleep(500 * time.Millisecond)
 		periodicUpdate_ch <- true
 	}
 }
@@ -140,10 +155,9 @@ func handlePeerupdate(peerUpdate network.PeerUpdate, thisElevator *elevator.Elev
 	}
 	(*elevatorMap)[thisElevator.Id] = *thisElevator
 
-	//Nå må vi redistrubiere requests og fjerne
 }
 
-func handleBtnPress(elevatorMap map[string]elevator.Elevator, e *elevator.Elevator) {
+func evaluateRequests(elevatorMap map[string]elevator.Elevator, e *elevator.Elevator) {
 	elevatorMap[e.Id] = *e
 	hallRequestsMap := hallrequestassigner.AssignHallRequests(elevatorMap)
 
@@ -157,6 +171,9 @@ func handleNewOrder(elevatorMap map[string]elevator.Elevator, recievedElevator *
 	thisElevator.OrderCounter = recievedElevator.OrderCounter
 
 	elevatorMap[recievedElevator.Id] = *recievedElevator
+	if recievedElevator.Obstructed {
+	} else {
+	}
 	hallRequestsMap := hallrequestassigner.AssignHallRequests(elevatorMap)
 
 	setElevatorMap(hallRequestsMap, &elevatorMap)
@@ -164,7 +181,6 @@ func handleNewOrder(elevatorMap map[string]elevator.Elevator, recievedElevator *
 	setLightMatrix(hallRequestsMap, thisElevator)
 
 	thisElevator.Requests = elevatorMap[thisElevator.Id].Requests
-
 }
 
 func handleOrderCompleted(elevatorMap map[string]elevator.Elevator, recievedElevator *elevator.Elevator, thisElevator *elevator.Elevator) {
@@ -193,6 +209,9 @@ func storeFsmUpdate(elevatorMap map[string]elevator.Elevator, oldState *elevator
 }
 
 func calculateMsgType(newState elevator.Elevator, oldState elevator.Elevator) network.MsgType {
+	if newState.Obstructed != oldState.Obstructed {
+		return network.ObstructedMsg
+	}
 	if newState.OrderClearedCounter > oldState.OrderClearedCounter {
 		return network.OrderCompleted
 	}
@@ -214,9 +233,6 @@ func setElevatorAsignments(elevatorMap map[string]elevator.Elevator, e *elevator
 	e.Requests = elevatorMap[e.Id].Requests
 }
 
-//Vi må oppdage om en heis som ikke står i idle og ikke har tom request matrise og har stått stille lenge og behandle det
-//Vi må også oppdage om en heis ikke har sendt melding på en stund
-// Legg logikk for å melde seg selv av nettverk når vi oppdager vi er fucked
 
 func saveCabCallsToFile(e elevator.Elevator) error {
 	requests := e.Requests
@@ -259,5 +275,37 @@ func boolToString(value bool) string {
 		return "true"
 	} else {
 		return "false"
+  }
+}  
+func SyncronizeAll(thisElevator elevator.Elevator, elevatorMap map[string]elevator.Elevator, recievedElevator elevator.Elevator, button_ch chan elevator.ButtonEvent) {
+	combinedrequests := thisElevator.Requests
+
+	for _, e := range elevatorMap {
+		for i := 0; i < elevator.N_FLOORS; i++ {
+			for j := 0; j < elevator.N_BUTTONS-1; j++ {
+				combinedrequests[i][j] = combinedrequests[i][j] || e.Requests[i][j]
+			}
+		}
+	}
+
+	if thisElevator.Lights != recievedElevator.Lights || thisElevator.Lights != combinedrequests {
+		for i := 0; i < elevator.N_FLOORS; i++ {
+			for j := 0; j < elevator.N_BUTTONS-1; j++ {
+				if thisElevator.Lights[i][j] != recievedElevator.Lights[i][j] {
+					button := new(elevator.ButtonEvent)
+					button.Floor = i
+					button.Button = elevator.ButtonType(j)
+					button_ch <- *button
+					thisElevator.OrderCounter = recievedElevator.OrderCounter + 1
+				} else if combinedrequests[i][j] != thisElevator.Lights[i][j] {
+					button := new(elevator.ButtonEvent)
+					button.Floor = i
+					button.Button = elevator.ButtonType(j)
+					button_ch <- *button
+					thisElevator.OrderCounter = recievedElevator.OrderCounter + 1
+
+				}
+			}
+		}
 	}
 }

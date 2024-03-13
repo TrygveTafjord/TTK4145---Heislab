@@ -70,7 +70,7 @@ import (
 func ElevatorInit(toFSM_ch chan Elevator, elevInitFSM_ch chan Elevator, lastID string, ID string) {
 	var e Elevator
 	e.Id = ID
-	e.similarity = 0
+	e.StandStill = 0
 
 	var cabCalls []bool
 	var direction int
@@ -114,7 +114,6 @@ func ElevatorInit(toFSM_ch chan Elevator, elevInitFSM_ch chan Elevator, lastID s
 	floor := GetFloor()
 	if floor == -1 {
 		SetMotorDirection(e.Dirn)
-		fmt.Print("\n \n WAS NOT AT A FLOOR \n \n ")
 		for floor == -1 {
 			floor = GetFloor()
 			if floor != (-1) {

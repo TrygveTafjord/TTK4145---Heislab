@@ -1,7 +1,8 @@
 package elevator
 
 import (
-	"fmt"
+	//"fmt"
+	//"fmt"
 	"time"
 
 	"project.com/pkg/timer"
@@ -56,10 +57,21 @@ func FSM(fromInfobank_ch chan Elevator, toInfobank_ch chan Elevator, elevInitFSM
 			obstruction = obstr
 
 		case <-selfCheck_ch:
-			kill := Selfdiagnose(elevator, &prevelevator)
-			if kill {
-				fmt.Printf("\n Selfdestruct")
-				//Logikk for å koble oss av nettet
+			diagnose := Selfdiagnose(elevator, &prevelevator, obstruction)
+			switch diagnose{
+				case Healthy:
+					elevator.Obstructed = false
+					elevator.OrderCounter++
+					elevStatusUpdate_ch <- *elevator
+				case Obstructed:
+					elevator.Obstructed = true
+					elevator.OrderCounter++
+					elevStatusUpdate_ch <- *elevator
+				case Problem:
+					//Reboot
+
+				case Unchanged:
+					//Nothing
 			}
 		}
 	}
@@ -110,7 +122,6 @@ func fsmOnFloorArrival(e *Elevator, newFloor int, timer_ch chan bool) {
 }
 
 func fsmNewAssignments(e *Elevator, timer_ch chan bool) {
-	// Her mistenker jeg det kommer bugs -Per 08.03
 	if e.Behaviour == EB_DoorOpen {
 		if requests_shouldClearImmediately(*e) {
 
@@ -166,34 +177,51 @@ func PeriodicCheck(selfCheck_ch chan bool) {
 	}
 }
 
-func Selfdiagnose(elevator *Elevator, prevElevator *Elevator) bool {
+
+
+
+
+func Selfdiagnose(elevator *Elevator, prevElevator *Elevator, obstruction bool)Diagnose {
 	hasRequests := Check_request(*elevator)
 
 	if hasRequests && elevator.Behaviour == prevElevator.Behaviour {
 
 		switch elevator.Behaviour {
 		case EB_Idle:
+			*prevElevator = *elevator
+			return Problem
+
 		case EB_DoorOpen:
 			if elevator.Floor == prevElevator.Floor {
-				elevator.similarity += 1
+				elevator.Standstill+= 1
 			}
 		case EB_Moving:
 			if elevator.Floor == prevElevator.Floor {
-				elevator.similarity += 1
-			}
+				elevator.Standstill+=1
+				}
 		}
+		*prevElevator = *elevator
 
-		if prevElevator.similarity == 15 {
-			return true
-		}
-	} else {
-		elevator.similarity = 0
+
+
+		if elevator.Standstill > 10 &&  obstruction{
+			return Obstructed
+		} else if elevator.Standstill == 20 && !obstruction {
+			return Problem
+		}			
+
+	}else if obstruction{
+		*prevElevator = *elevator
+		return Unchanged
+
+	}else{
+		elevator.Standstill = 0
+		*prevElevator = *elevator
 	}
-	*prevElevator = *elevator
-	return false
+	return Healthy
 }
 
-func Check_request(elevator Elevator) bool {
+func Check_request(elevator Elevator)bool{
 	for i := 0; i < N_FLOORS; i++ {
 		for j := 0; j < N_BUTTONS; j++ {
 			if elevator.Requests[i][j] {
