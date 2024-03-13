@@ -23,37 +23,47 @@ func AssignHallRequests(elevatorMap map[string]elevator.Elevator) map[string][4]
 }
 */
 func AssignHallRequests(elevatorMap map[string]elevator.Elevator) map[string][4][2]bool {
+	elevMap:= make(map[string]elevator.Elevator)
+
 	obstructedElevators := []string{}
 	unsolvedOrders := [4][2] bool{}
 	emptyOrdersOrders := [4][2] bool{}
 
+
 	for _, v := range elevatorMap {
 		if v.Obstructed {
-
 			obstructedElevators = append(obstructedElevators,v.Id)
 			for i := 0; i < elevator.N_FLOORS; i++ {
 				for j := 0; j < elevator.N_BUTTONS-1; j++ {
 					unsolvedOrders[i][j] = unsolvedOrders[i][j] || v.Requests[i][j]
 				}
 			}
-			delete(elevatorMap,v.Id)
-		}else{ /// Her er det smått feil
-			
-			for i := 0; i < elevator.N_FLOORS; i++ {
-				for j := 0; j < elevator.N_BUTTONS-1; j++ {
-				v.Requests[i][j] = v.Requests[i][j] || unsolvedOrders[i][j]
-				}
-			}
-			elevatorMap[v.Id] = v
+		} else
+		{
+		elevMap[v.Id] = v
 		}
 	}
 
-	elevatorList := make([]elevator.Elevator, 0, len(elevatorMap))
+	if len(obstructedElevators)!= 0 {
+		for id,v := range elevMap{
+			tempElev := v
+			
+			for i := 0; i < elevator.N_FLOORS; i++ {
+				for j := 0; j < elevator.N_BUTTONS - 1; j++ {
+					tempElev.Requests[i][j] = tempElev.Requests[i][j] || unsolvedOrders[i][j]
+				}
+			}
+			elevMap[id] = tempElev
 
-	for _, v := range elevatorMap {
-		elevatorList = append(elevatorList, v)
+			break
+		}
 	}
 
+	elevatorList := make([]elevator.Elevator, 0, len(elevMap))
+
+	for _, v := range elevMap {
+		elevatorList = append(elevatorList, v)
+	}
 	JSON := CreateJSON(elevatorList...)
 	returnMap := HallRequestAssigner(JSON)
 
