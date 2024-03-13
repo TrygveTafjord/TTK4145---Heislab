@@ -67,14 +67,17 @@ func FSM(elevStatusUpdate_ch chan Elevator) {
 			switch diagnose{
 				case Healthy:
 					elevator.Obstructed = false
+					elevator.OrderCounter++
+					elevStatusUpdate_ch <- *elevator
 				case Obstructed:
 					elevator.Obstructed = true
 					elevator.OrderCounter++
 					elevStatusUpdate_ch <- *elevator
-				case MotorProblem:
+				case Problem:
 					//Reboot
-				case Other:
-					//Reboot
+
+				case Unchanged:
+					//Nothing
 
 			}
 		}
@@ -191,7 +194,7 @@ func Selfdiagnose(elevator *Elevator, prevElevator *Elevator, obstruction bool)D
 		switch elevator.Behaviour {
 		case EB_Idle:
 			*prevElevator = *elevator
-			return Other
+			return Problem
 
 		case EB_DoorOpen:
 			if elevator.Floor == prevElevator.Floor {
@@ -208,10 +211,14 @@ func Selfdiagnose(elevator *Elevator, prevElevator *Elevator, obstruction bool)D
 
 		if elevator.Standstill > 10 &&  obstruction{
 			return Obstructed
-		} else if prevElevator.Standstill == 20 && !obstruction {
-			return MotorProblem
+		} else if elevator.Standstill == 20 && !obstruction {
+			return Problem
 		}
 			
+
+	}else if obstruction{
+		*prevElevator = *elevator
+		return Unchanged
 
 	}else{
 		elevator.Standstill = 0
