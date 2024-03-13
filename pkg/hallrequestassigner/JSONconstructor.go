@@ -7,9 +7,19 @@ import (
 	"project.com/pkg/elevator"
 )
 
+
+
 //assuming: [up, down, cab] in the 4x3 matrix that is requestst
-/*
-func AssignHallRequests(elevatorMap map[string]elevator.Elevator) map[string][4][2]bool {
+
+func AssignHallRequests(elevatorMap map[string]elevator.Elevator) map[string][4][2]bool{
+	if len(elevatorMap) == 1 {
+		return AssignHallRequestsSingle(elevatorMap)
+	}else{
+		return AssignHallRequestsMultiple(elevatorMap)
+	}
+}
+
+func AssignHallRequestsSingle(elevatorMap map[string]elevator.Elevator) map[string][4][2]bool {
 
 	elevatorList := make([]elevator.Elevator, 0, len(elevatorMap))
 
@@ -21,54 +31,29 @@ func AssignHallRequests(elevatorMap map[string]elevator.Elevator) map[string][4]
 	
 	return HallRequestAssigner(JSON)
 }
-*/
-func AssignHallRequests(elevatorMap map[string]elevator.Elevator) map[string][4][2]bool {
-	elevMap:= make(map[string]elevator.Elevator)
 
+
+func AssignHallRequestsMultiple(elevatorMap map[string]elevator.Elevator) map[string][4][2]bool {
+	healthyElevators:= make(map[string]elevator.Elevator)
 	obstructedElevators := []string{}
-	unsolvedOrders := [4][2] bool{}
-	emptyOrdersOrders := [4][2] bool{}
+	obstructedOrders := [4][2] bool{}
+	emptyRequests := [4][2] bool{}
 
+	
+	resolveObstrucedElevators(elevatorMap,&healthyElevators, &obstructedElevators, &obstructedOrders)
+	redistributeObstructedOrders(len(obstructedElevators), &healthyElevators, obstructedOrders)
+	
+	elevatorList := make([]elevator.Elevator, 0, len(healthyElevators))
 
-	for _, v := range elevatorMap {
-		if v.Obstructed {
-			obstructedElevators = append(obstructedElevators,v.Id)
-			for i := 0; i < elevator.N_FLOORS; i++ {
-				for j := 0; j < elevator.N_BUTTONS-1; j++ {
-					unsolvedOrders[i][j] = unsolvedOrders[i][j] || v.Requests[i][j]
-				}
-			}
-		} else
-		{
-		elevMap[v.Id] = v
-		}
-	}
-
-	if len(obstructedElevators)!= 0 {
-		for id,v := range elevMap{
-			tempElev := v
-			
-			for i := 0; i < elevator.N_FLOORS; i++ {
-				for j := 0; j < elevator.N_BUTTONS - 1; j++ {
-					tempElev.Requests[i][j] = tempElev.Requests[i][j] || unsolvedOrders[i][j]
-				}
-			}
-			elevMap[id] = tempElev
-
-			break
-		}
-	}
-
-	elevatorList := make([]elevator.Elevator, 0, len(elevMap))
-
-	for _, v := range elevMap {
+	for _, v := range healthyElevators {
 		elevatorList = append(elevatorList, v)
 	}
+
 	JSON := CreateJSON(elevatorList...)
 	returnMap := HallRequestAssigner(JSON)
 
 	for _,Id := range obstructedElevators{
-		returnMap[Id] = emptyOrdersOrders
+		returnMap[Id] = emptyRequests
 	}
 	return returnMap
 }
@@ -165,3 +150,49 @@ func generateHallRequests(elevators []elevator.Elevator) (resultMatrix [4][2]boo
 
 	return resultMatrix
 }
+
+
+
+
+
+
+
+func resolveObstrucedElevators(elevatorMap map[string]elevator.Elevator,healthyElevators *map[string]elevator.Elevator, obstructedElevators *[]string, obstructedOrders *[4][2]bool){
+	obstructed := *obstructedElevators
+	orders := *obstructedOrders
+	for _, v := range elevatorMap {
+		if v.Obstructed {
+			
+			obstructed = append(obstructed,v.Id)
+			for i := 0; i < elevator.N_FLOORS; i++ {
+				for j := 0; j < elevator.N_BUTTONS-1; j++ {
+					orders[i][j] = orders[i][j] || v.Requests[i][j]
+				}
+			}
+		} else
+		{
+		(*healthyElevators)[v.Id] = v
+		}
+	}
+
+	*obstructedElevators = obstructed
+	*obstructedOrders = orders
+}
+
+
+func redistributeObstructedOrders(obstructedElevators int, healthyElevators *map[string]elevator.Elevator, obstructedOrders [4][2]bool){
+	if obstructedElevators!= 0 {
+		for id,v := range *healthyElevators{
+			tempElev := v
+			
+			for i := 0; i < elevator.N_FLOORS; i++ {
+				for j := 0; j < elevator.N_BUTTONS - 1; j++ {
+					tempElev.Requests[i][j] = tempElev.Requests[i][j] || obstructedOrders[i][j]
+				}
+			}
+			(*healthyElevators)[id] = tempElev
+			break
+		}
+	}
+}
+	
