@@ -1,7 +1,5 @@
 package elevator
 
-
-
 func requestsAbove(e Elevator) bool {
 	for flr := e.Floor + 1; flr < N_FLOORS; flr++ {
 		for btn := 0; btn < N_BUTTONS; btn++ {
@@ -35,8 +33,10 @@ func requestsHere(e Elevator) bool {
 }
 
 func requestShouldStop(e Elevator) bool {
+	fmt.Printf("Requests below: %v \n", requestsBelow(e))
 	switch e.Dirn {
 	case MD_Down:
+		fmt.Print("I think i am moving down \n")
 		return (e.Requests[e.Floor][BT_HallDown] ||
 			e.Requests[e.Floor][BT_Cab] ||
 			!requestsBelow(e))

@@ -1,7 +1,10 @@
 package infobank
 
 import (
+	"encoding/csv"
 	"fmt"
+	"os"
+	"strconv"
 	"time"
 
 	"project.com/pkg/elevator"
@@ -11,7 +14,8 @@ import (
 )
 
 func Infobank_FSM(
-	elevStatusUpdate_ch chan elevator.Elevator,
+	toFSM_ch chan elevator.Elevator,
+	fromFSM_ch chan elevator.Elevator,
 	networkUpdateTx_ch chan network.Msg,
 	networkUpdateRx_ch chan network.Msg,
 	peerUpdate_ch chan network.PeerUpdate,
@@ -25,9 +29,7 @@ func Infobank_FSM(
 
 	elevatorMap := make(map[string]elevator.Elevator)
 	hallRequestsMap := make(map[string][4][2]bool)
-	var thisElevator elevator.Elevator
-
-	thisElevator = <-elevStatusUpdate_ch
+	thisElevator := <-fromFSM_ch
 
 	elevatorMap[thisElevator.Id] = thisElevator
 
@@ -47,9 +49,13 @@ func Infobank_FSM(
 
 			evaluateRequests(elevatorMap, &thisElevator)
 
-			elevStatusUpdate_ch <- thisElevator
+			toFSM_ch <- thisElevator
 
-		case newState := <-elevStatusUpdate_ch:
+		case newState := <-fromFSM_ch:
+			err := saveCabCallsToFile(newState)
+			if err != nil {
+				fmt.Printf("Failed to write to CSV file. \n")
+			}
 
 			msgType := calculateMsgType(newState, thisElevator)
 			storeFsmUpdate(elevatorMap, &thisElevator, &newState)
@@ -72,17 +78,17 @@ func Infobank_FSM(
 
 			case network.NewOrder:
 				handleNewOrder(elevatorMap, &Msg.Elevator, &thisElevator)
-				elevStatusUpdate_ch <- thisElevator
+				toFSM_ch <- thisElevator
 
 			case network.OrderCompleted:
 				handleOrderCompleted(elevatorMap, &Msg.Elevator, &thisElevator)
-				elevStatusUpdate_ch <- thisElevator
+				toFSM_ch <- thisElevator
 
 			case network.StateUpdate:
 				// Midlertidig løsning for packetloss ved slukking av lys, dette kan være kilde til bus, men funker fett nå (merk at vi alltid setter order counter til å være det vi får inn)
 				if Msg.Elevator != elevatorMap[Msg.Elevator.Id] {
 					handleOrderCompleted(elevatorMap, &Msg.Elevator, &thisElevator)
-					elevStatusUpdate_ch <- thisElevator
+					toFSM_ch <- thisElevator
 				}
 				elevatorMap[Msg.Elevator.Id] = Msg.Elevator
 
@@ -109,8 +115,7 @@ func Infobank_FSM(
 				hallRequestsMap := hallrequestassigner.AssignHallRequests(elevatorMap)
 				setLightMatrix(hallRequestsMap, &thisElevator)
 				thisElevator.Requests = elevatorMap[thisElevator.Id].Requests
-				elevStatusUpdate_ch <- thisElevator
-				fmt.Printf("\n", elevatorMap)
+				toFSM_ch <- thisElevator
 			}
 		}
 	}
@@ -126,14 +131,6 @@ func setElevatorMap(newAssignmentsMap map[string][4][2]bool, elevatorMap *map[st
 			}
 		}
 		(*elevatorMap)[id] = tempElev
-	}
-}
-
-func setAllLights(e *elevator.Elevator) {
-	for floor := 0; floor < elevator.N_FLOORS; floor++ {
-		for btn := 0; btn < elevator.N_BUTTONS; btn++ {
-			elevator.SetButtonLamp(elevator.ButtonType(btn), floor, e.Lights[floor][btn])
-		}
 	}
 }
 
@@ -236,6 +233,50 @@ func setElevatorAsignments(elevatorMap map[string]elevator.Elevator, e *elevator
 	e.Requests = elevatorMap[e.Id].Requests
 }
 
+
+func saveCabCallsToFile(e elevator.Elevator) error {
+	requests := e.Requests
+	filename := e.Id
+
+	file, err := os.Create(filename)
+	if err != nil {
+		fmt.Printf("Failed to open file: %v", err)
+	}
+
+	defer file.Close()
+
+	writer := csv.NewWriter(file)
+
+	var records [][]string
+	for _, row := range requests {
+		cabReq := row[2]
+		records = append(records, []string{boolToString(cabReq)})
+	}
+
+	records = append(records, []string{"OCC:" + strconv.Itoa(e.OrderClearedCounter)})
+	records = append(records, []string{"OC:" + strconv.Itoa(e.OrderCounter)})
+	records = append(records, []string{"BH:" + strconv.Itoa(int(e.Behaviour))})
+	records = append(records, []string{"DIR:" + strconv.Itoa(int(e.Dirn))})
+
+	for _, record := range records {
+		if err := writer.Write(record); err != nil {
+			return fmt.Errorf("failed to write to CSV: %v", err)
+		}
+	}
+
+	writer.Flush()
+	return nil
+
+}
+
+func boolToString(value bool) string {
+
+	if value {
+		return "true"
+	} else {
+		return "false"
+  }
+}  
 func SyncronizeAll(thisElevator elevator.Elevator, elevatorMap map[string]elevator.Elevator, recievedElevator elevator.Elevator, button_ch chan elevator.ButtonEvent) {
 	combinedrequests := thisElevator.Requests
 
@@ -265,7 +306,6 @@ func SyncronizeAll(thisElevator elevator.Elevator, elevatorMap map[string]elevat
 
 				}
 			}
-
 		}
 	}
 }

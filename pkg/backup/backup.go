@@ -1,6 +1,6 @@
-package main
+package backup
 
-import (
+/*import (
 	"fmt"
 	"net"
 	"os"
@@ -17,7 +17,6 @@ const (
 )
 
 func startBackupProcess(port string) {
-	fmt.Print("I get here")
 	exec.Command("gnome-terminal", "--", "go", "run", "main.go", port).Run()
 }
 
@@ -60,7 +59,7 @@ func primaryProcess(lastID string, port string, udpSendAddr string) {
 
 }
 
-func backupProcess() {
+func BackupProcess() {
 	fmt.Printf("---------BACKUP PHASE---------\n")
 
 	args := os.Args
@@ -96,10 +95,12 @@ func backupProcess() {
 		buffer := make([]byte, 1024)
 		conn.SetReadDeadline(time.Now().Add(heartbeatSleep * 5 * time.Millisecond))
 		n, _, err := conn.ReadFromUDP(buffer)
+		fmt.Printf("The heartbeat is: %v", string(buffer))
 
 		if err == nil {
 			lastID = string(buffer[:n])
 		} else {
+			fmt.Printf("The error is: %v", err)
 			if e, ok := err.(net.Error); ok && e.Timeout() {
 				conn.Close()
 				startBackupProcess(port)
@@ -111,8 +112,4 @@ func backupProcess() {
 			}
 		}
 	}
-}
-
-func main() {
-	backupProcess()
-}
+}*/
