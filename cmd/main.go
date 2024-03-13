@@ -9,8 +9,8 @@ import (
 
 	"project.com/pkg/elevator"
 	"project.com/pkg/infobank"
-	"project.com/pkg/network"
 	"project.com/pkg/initialize"
+	"project.com/pkg/network"
 )
 
 const (
@@ -22,7 +22,7 @@ func startBackupProcess(port string) {
 	exec.Command("gnome-terminal", "--", "go", "run", "main.go", port).Run()
 }
 
-func primaryProcess(lastID string, port string, udpSendAddr string) {
+func primaryProcess(lastID string, udpSendAddr string) {
 	sendUDPAddr, err := net.ResolveUDPAddr("udp", udpSendAddr)
 	if err != nil {
 		fmt.Println(err)
@@ -38,7 +38,7 @@ func primaryProcess(lastID string, port string, udpSendAddr string) {
 	const BUFFER_SIZE = 50
 
 	requestUpdate_ch := make(chan [elevator.N_FLOORS][elevator.N_BUTTONS]bool, BUFFER_SIZE)
-	clearRequest_ch := make(chan [elevator.N_FLOORS][elevator.N_BUTTONS]bool, BUFFER_SIZE)
+	clearRequest_ch := make(chan []elevator.ButtonEvent, BUFFER_SIZE)
 	stateUpdate_ch := make(chan elevator.State, BUFFER_SIZE)
 	lightsUpdate_ch := make(chan [elevator.N_FLOORS][elevator.N_BUTTONS]bool, BUFFER_SIZE)
 	obstruction_ch := make(chan bool, BUFFER_SIZE)
@@ -94,9 +94,9 @@ func backupProcess() {
 
 	elevator.Init("localhost:"+port, 4)
 
-	if err != nil {
-		fmt.Printf("could not get IP")
-	}
+	// if err != nil {
+	// 	fmt.Printf("could not get IP")
+	// }
 
 	var lastID string
 
@@ -111,7 +111,7 @@ func backupProcess() {
 			if e, ok := err.(net.Error); ok && e.Timeout() {
 				conn.Close()
 				startBackupProcess(port)
-				primaryProcess(lastID, port, udpSendAddr)
+				primaryProcess(lastID, udpSendAddr)
 				return
 			} else {
 				fmt.Println("Error reading from UDP:", err)

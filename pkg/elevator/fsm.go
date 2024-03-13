@@ -4,12 +4,13 @@ import (
 	//"fmt"
 	//"fmt"
 
+	"fmt"
 	"time"
 
 	"project.com/pkg/timer"
 )
 
-func FSM(requestUpdate_ch chan [N_FLOORS][N_BUTTONS]bool, clearRequestToInfobank_ch chan [N_FLOORS][N_BUTTONS]bool, stateToInfobank_ch chan State, lightUpdate_ch chan [N_FLOORS][N_BUTTONS]bool, elevatorInit_ch chan Elevator) {
+func FSM(requestUpdate_ch chan [N_FLOORS][N_BUTTONS]bool, clearRequestToInfobank_ch chan []ButtonEvent, stateToInfobank_ch chan State, lightUpdate_ch chan [N_FLOORS][N_BUTTONS]bool, elevatorInit_ch chan Elevator) {
 
 	floorSensor_ch := make(chan int)
 	obstruction_ch := make(chan bool)
@@ -30,11 +31,10 @@ func FSM(requestUpdate_ch chan [N_FLOORS][N_BUTTONS]bool, clearRequestToInfobank
 		select {
 		case requests := <-requestUpdate_ch:
 			elevator.Requests = requests
-			if quickClear(elevator, timer_ch) {
-				clearRequestToInfobank_ch <- elevator.Requests
-				break	
-			} 
 			fsmNewRequests(elevator, timer_ch)
+			if elevator.Requests != requests {
+				clearRequestToInfobank_ch <- getClearedRequests(requests, elevator.Requests)
+			}
 			stateToInfobank_ch <- elevator.State
 
 		case lights := <-lightUpdate_ch:
@@ -43,11 +43,11 @@ func FSM(requestUpdate_ch chan [N_FLOORS][N_BUTTONS]bool, clearRequestToInfobank
 
 		case newFloor := <-floorSensor_ch:
 			
-			
-			ShouldStop := fsmOnFloorArrival(elevator, newFloor, timer_ch)
+			requestsBeforeNewFloor := elevator.Requests
+			fsmOnFloorArrival(elevator, newFloor, timer_ch)
 			stateToInfobank_ch <- elevator.State
-			if ShouldStop {
-				clearRequestToInfobank_ch <- elevator.Requests
+			if requestsBeforeNewFloor != elevator.Requests{
+				clearRequestToInfobank_ch <- getClearedRequests(requestsBeforeNewFloor, elevator.Requests)
 			}
 			
 
@@ -59,22 +59,6 @@ func FSM(requestUpdate_ch chan [N_FLOORS][N_BUTTONS]bool, clearRequestToInfobank
 			if !obstruction && elevator.State.Behaviour == EB_DoorOpen {
 				go timer.Run_timer(3, timer_ch)
 			}
-/*
-		case <-selfCheck_ch:
-			diagnose := Selfdiagnose(elevator, &prevelevator, obstruction, &standstill)
-			switch diagnose {
-			case Healthy:
-				elevator.State.Obstructed = false
-				toInfobank_ch <- *elevator
-			case Obstructed:
-				elevator.State.Obstructed = true
-				toInfobank_ch <- *elevator
-			case Problem:
-				//Reboot
-			case Unchanged:
-				//Nothing
-			}
-*/
 		}
 	}
 }
@@ -88,6 +72,7 @@ func HandleDeparture(e *Elevator, timer_ch chan bool, obstruction bool) {
 		switch e.State.Behaviour {
 
 		case EB_DoorOpen:
+			fmt.Printf("DET SKJEDDE HANDLE DEPARTURE, HVAFAEN \n")
 			SetDoorOpenLamp(true)
 			requests_clearAtCurrentFloor(e)
 			go timer.Run_timer(3, timer_ch)
@@ -102,7 +87,7 @@ func HandleDeparture(e *Elevator, timer_ch chan bool, obstruction bool) {
 	}
 }
 
-func fsmOnFloorArrival(e *Elevator, newFloor int, timer_ch chan bool) bool {
+func fsmOnFloorArrival(e *Elevator, newFloor int, timer_ch chan bool) {
 
 	e.State.Floor = newFloor
 	SetFloorIndicator(newFloor)
@@ -116,26 +101,18 @@ func fsmOnFloorArrival(e *Elevator, newFloor int, timer_ch chan bool) bool {
 		go timer.Run_timer(3, timer_ch)
 		e.State.Behaviour = EB_DoorOpen
 		setAllLights(e)
-		return true
 	}
-	return false
 }
 
-
-func quickClear(e *Elevator, timer_ch chan bool) bool {
+func fsmNewRequests(e *Elevator, timer_ch chan bool) {
 	if e.State.Behaviour == EB_DoorOpen {
 		if requests_shouldClearImmediately(*e) {
 			requests_clearAtCurrentFloor(e)
 			go timer.Run_timer(3, timer_ch)
 			setAllLights(e)
-			return true
 		}
-		
+		return
 	}
-	return false
-}
-
-func fsmNewRequests(e *Elevator, timer_ch chan bool) {
 
 	e.State.Dirn, e.State.Behaviour = GetDirectionAndBehaviour(e)
 	switch e.State.Behaviour {
@@ -227,3 +204,16 @@ func Check_request(elevator Elevator) bool {
 	return false
 }
 
+func getClearedRequests(oldRequests [N_FLOORS][N_BUTTONS]bool, newRequests [N_FLOORS][N_BUTTONS]bool) []ButtonEvent{
+	var clearedRequests []ButtonEvent
+	for i := 0; i < N_FLOORS; i++ {
+		for j := 0; j < N_BUTTONS; j++ {
+			if oldRequests[i][j] != newRequests[i][j] {
+				clearedRequests = append(clearedRequests, ButtonEvent{i, ButtonType(j)})
+			}
+		}
+	}
+
+	return clearedRequests
+
+}

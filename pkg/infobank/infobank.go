@@ -12,7 +12,7 @@ import (
 
 func Infobank(
 	requestUpdateToFSM_ch chan [elevator.N_FLOORS][elevator.N_BUTTONS]bool,
-	clearRequestFromFSM_ch chan [elevator.N_FLOORS][elevator.N_BUTTONS]bool, 
+	clearRequestFromFSM_ch chan []elevator.ButtonEvent, 
 	stateUpdateFromFSM_ch chan elevator.State, 
 	lightsUpdateToFSM_ch chan [elevator.N_FLOORS][elevator.N_BUTTONS]bool,
 	networkUpdateTx_ch chan network.Msg,
@@ -47,9 +47,9 @@ func Infobank(
 			thisElevator.Requests[buttonEvent.Floor][buttonEvent.Button] = true
 			thisElevator.OrderCounter++
 			evaluateRequests(elevatorMap, &thisElevator)
-
-			requestUpdateToFSM_ch <- thisElevator.Requests
+			fmt.Printf("requests after button event: %v \n", thisElevator.Requests)
 			lightsUpdateToFSM_ch <- thisElevator.Lights
+			requestUpdateToFSM_ch <- thisElevator.Requests
 
 			
 			// msg := network.Msg{
@@ -82,9 +82,18 @@ func Infobank(
 
 			elevatorMap[thisElevator.Id] = thisElevator
 
-		case updatedRequests := <- clearRequestFromFSM_ch:
-			thisElevator.Requests = updatedRequests
-			elevatorMap[thisElevator.Id] =thisElevator
+		case clearedRequests := <- clearRequestFromFSM_ch:
+			fmt.Printf("Recieved a requestClear event in Infobank")
+			for _, requests := range clearedRequests {
+				thisElevator.Requests[requests.Floor][requests.Button] = false
+				thisElevator.Lights[requests.Floor][requests.Button] = false
+			}
+			thisElevator.Requests[clearedRequests[0].Floor][elevator.BT_Cab] = false
+			thisElevator.Lights[clearedRequests[0].Floor][elevator.BT_Cab] = false
+			
+			elevatorMap[thisElevator.Id] = thisElevator
+
+			fmt.Printf("Requests cleared: %v \n", thisElevator.Requests)
 			
 			// msg := RequestClearedMsg { 
 			// 	Direction: thisElevator.Dirn, 
@@ -249,6 +258,7 @@ func setLightMatrix(newAssignmentsMap map[string][4][2]bool, e *ElevatorInfo) {
 		}
 	}
 }
+
 
 func setElevatorAsignments(elevatorMap map[string]ElevatorInfo, e *ElevatorInfo) {
 	e.Requests = elevatorMap[e.Id].Requests

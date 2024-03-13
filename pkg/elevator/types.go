@@ -27,6 +27,7 @@ type State struct {
 	Obstructed bool
 }
 
+
 type Diagnose int
 
 const (
