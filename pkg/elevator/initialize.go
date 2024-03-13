@@ -70,7 +70,7 @@ import (
 func ElevatorInit(toFSM_ch chan Elevator, elevInitFSM_ch chan Elevator, lastID string, ID string) {
 	var e Elevator
 	e.Id = ID
-	e.StandStill = 0
+	e.Standstill = 0
 
 	var cabCalls []bool
 	var direction int
