@@ -69,51 +69,26 @@ import (
 
 func ElevatorInit(toFSM_ch chan Elevator, elevInitFSM_ch chan Elevator, lastID string, ID string) {
 	var e Elevator
-	e.Id = ID
-	e.Standstill = 0
-
-	var cabCalls []bool
-	var direction int
+	//e.State.Standstill = 0
+	//e.Id = ID
+	//var cabCalls []bool
+	//var direction int
 
 	//reset buttons
-	if len(lastID) == 0 {
-		for floor := 0; floor < 4; floor++ {
-			for btn := 0; btn < 3; btn++ {
-				SetButtonLamp(ButtonType(btn), floor, false)
-				e.Requests[floor][btn] = false
-				e.Lights[floor][btn] = false
-			}
-		}
-		e.OrderClearedCounter = 0
-		e.OrderCounter = 0
-		e.Behaviour = EB_Idle
-
-	} else {
-
-		cabCalls, e.OrderClearedCounter, e.OrderCounter, e.Behaviour, direction = readCSV(lastID)
-
-		for floor := 0; floor < 4; floor++ {
-			for btn := 0; btn < 2; btn++ {
-				SetButtonLamp(ButtonType(btn), floor, false)
-			}
-			SetButtonLamp(ButtonType(BT_Cab), floor, cabCalls[floor])
-			e.Requests[floor][BT_Cab] = cabCalls[floor]
-			e.Lights[floor][BT_Cab] = cabCalls[floor]
+	
+	for floor := 0; floor < 4; floor++ {
+		for btn := 0; btn < 3; btn++ {
+			SetButtonLamp(ButtonType(btn), floor, false)
+			e.Requests[floor][btn] = false
+			e.Lights[floor][btn] = false
 		}
 	}
-
-	switch direction {
-    case 1:
-		e.Dirn = MD_Up
-    case -1:
-        e.Dirn = MD_Down
-    default:
-        e.Dirn = MD_Stop
-	}
+	//e.OrderClearedCounter = 0
+	//e.OrderCounter = 0
 
 	floor := GetFloor()
 	if floor == -1 {
-		SetMotorDirection(e.Dirn)
+		SetMotorDirection(MD_Down)
 		for floor == -1 {
 			floor = GetFloor()
 			if floor != (-1) {
@@ -122,11 +97,51 @@ func ElevatorInit(toFSM_ch chan Elevator, elevInitFSM_ch chan Elevator, lastID s
 			}
 		}
 	}
-	e.Floor = floor
-	e.OrderCounter--
+	e.State.Floor = floor
+	e.State.Behaviour = EB_Idle
+	e.State.Obstructed = false
+	e.State.Dirn = MD_Stop //Sketchy?????
+
 	elevInitFSM_ch <- e
-	e.OrderCounter++
-	toFSM_ch <- e
+	// } else {
+
+	// 	cabCalls, e.OrderClearedCounter, e.OrderCounter, e.Behaviour, direction = readCSV(lastID)
+
+	// 	for floor := 0; floor < 4; floor++ {
+	// 		for btn := 0; btn < 2; btn++ {
+	// 			SetButtonLamp(ButtonType(btn), floor, false)
+	// 		}
+	// 		SetButtonLamp(ButtonType(BT_Cab), floor, cabCalls[floor])
+	// 		e.Requests[floor][BT_Cab] = cabCalls[floor]
+	// 		e.Lights[floor][BT_Cab] = cabCalls[floor]
+	// 	}
+	// }
+
+	// switch direction {
+    // case 1:
+	// 	e.Dirn = MD_Up
+    // case -1:
+    //     e.Dirn = MD_Down
+    // default:
+    //     e.Dirn = MD_Stop
+	// }
+
+	// floor := GetFloor()
+	// if floor == -1 {
+	// 	SetMotorDirection(e.Dirn)
+	// 	for floor == -1 {
+	// 		floor = GetFloor()
+	// 		if floor != (-1) {
+	// 			SetMotorDirection(MD_Stop)
+	// 			break
+	// 		}
+	// 	}
+	// }
+	// e.Floor = floor
+	// e.OrderCounter--
+	// elevInitFSM_ch <- e
+	// e.OrderCounter++
+	// toFSM_ch <- e
 }
 
 func readCSV(previousID string) ([]bool, int, int, ElevatorBehaviour, int) {

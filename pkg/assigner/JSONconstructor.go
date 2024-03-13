@@ -1,4 +1,4 @@
-package hallrequestassigner
+package assigner
 
 import (
 	"encoding/json"
@@ -7,49 +7,36 @@ import (
 	"project.com/pkg/elevator"
 )
 
-
-
 //assuming: [up, down, cab] in the 4x3 matrix that is requestst
 
-func AssignHallRequests(elevatorMap map[string]elevator.Elevator) map[string][4][2]bool{
-	if len(elevatorMap) == 1 {
-		return AssignHallRequestsSingle(elevatorMap)
+func AssignHallRequests(assignerList []AssignerInput) map[string][4][2]bool{
+	if len(assignerList) == 1 {
+		return AssignHallRequestsSingle(assignerList)
 	}else{
-		return AssignHallRequestsMultiple(elevatorMap)
+		return AssignHallRequestsMultiple(assignerList)
 	}
 }
 
-func AssignHallRequestsSingle(elevatorMap map[string]elevator.Elevator) map[string][4][2]bool {
+func AssignHallRequestsSingle(assignerList []AssignerInput) map[string][4][2]bool {
 
-	elevatorList := make([]elevator.Elevator, 0, len(elevatorMap))
-
-	for _, v := range elevatorMap {
-		elevatorList = append(elevatorList, v)
-	}
-
-	JSON := CreateJSON(elevatorList...)
+	JSON := CreateJSON(assignerList...)
 	
 	return HallRequestAssigner(JSON)
 }
 
 
-func AssignHallRequestsMultiple(elevatorMap map[string]elevator.Elevator) map[string][4][2]bool {
-	healthyElevators:= make(map[string]elevator.Elevator)
+func AssignHallRequestsMultiple(assignerList []AssignerInput) map[string][4][2]bool {
+	healthyElevators:= make(map[string]AssignerInput)
 	obstructedElevators := []string{}
 	obstructedOrders := [4][2] bool{}
 	emptyRequests := [4][2] bool{}
 
-	
-	resolveObstrucedElevators(elevatorMap,&healthyElevators, &obstructedElevators, &obstructedOrders)
+	//if obstruction()
+	resolveObstrucedElevators(assignerList ,&healthyElevators, &obstructedElevators, &obstructedOrders)
 	redistributeObstructedOrders(len(obstructedElevators), &healthyElevators, obstructedOrders)
 	
-	elevatorList := make([]elevator.Elevator, 0, len(healthyElevators))
 
-	for _, v := range healthyElevators {
-		elevatorList = append(elevatorList, v)
-	}
-
-	JSON := CreateJSON(elevatorList...)
+	JSON := CreateJSON(assignerList...)
 	returnMap := HallRequestAssigner(JSON)
 
 	for _,Id := range obstructedElevators{
@@ -59,7 +46,7 @@ func AssignHallRequestsMultiple(elevatorMap map[string]elevator.Elevator) map[st
 }
 
 
-func CreateJSON(elevators ...elevator.Elevator) []byte {
+func CreateJSON(elevators ...AssignerInput) []byte {
 	hallRequests := generateHallRequests(elevators)
 	auxJSONMap := make(map[string]interface{})
 
@@ -68,7 +55,7 @@ func CreateJSON(elevators ...elevator.Elevator) []byte {
 		var behaviour string
 		var cabRequests []bool
 
-		switch e.Dirn {
+		switch e.State.Dirn {
 		case elevator.MD_Up:
 			direction = "up"
 		case elevator.MD_Down:
@@ -77,7 +64,7 @@ func CreateJSON(elevators ...elevator.Elevator) []byte {
 			direction = "stop"
 		}
 
-		switch e.Behaviour {
+		switch e.State.Behaviour {
 		case elevator.EB_DoorOpen:
 			behaviour = "doorOpen"
 		case elevator.EB_Idle:
@@ -91,7 +78,7 @@ func CreateJSON(elevators ...elevator.Elevator) []byte {
 			cabRequests = append(cabRequests, request[2])
 		}
 
-		floor := e.Floor // Assuming floor is non-negative.
+		floor := e.State.Floor // Assuming floor is non-negative.
 
 		stateMap := map[string]interface{}{
 			"behaviour":   behaviour,
@@ -135,7 +122,7 @@ func CreateJSON(elevators ...elevator.Elevator) []byte {
 	return JSON
 }
 
-func generateHallRequests(elevators []elevator.Elevator) (resultMatrix [4][2]bool) {
+func generateHallRequests(elevators []AssignerInput) (resultMatrix [4][2]bool) {
 
 	for i := 0; i < 4; i++ {
 		for j := 0; j < 2; j++ {
@@ -147,7 +134,6 @@ func generateHallRequests(elevators []elevator.Elevator) (resultMatrix [4][2]boo
 			}
 		}
 	}
-
 	return resultMatrix
 }
 
@@ -157,11 +143,11 @@ func generateHallRequests(elevators []elevator.Elevator) (resultMatrix [4][2]boo
 
 
 
-func resolveObstrucedElevators(elevatorMap map[string]elevator.Elevator,healthyElevators *map[string]elevator.Elevator, obstructedElevators *[]string, obstructedOrders *[4][2]bool){
+func resolveObstrucedElevators(assignerList []AssignerInput, healthyElevators *map[string]AssignerInput, obstructedElevators *[]string, obstructedOrders *[4][2]bool){
 	obstructed := *obstructedElevators
 	orders := *obstructedOrders
-	for _, v := range elevatorMap {
-		if v.Obstructed {
+	for _, v := range assignerList {
+		if v.State.Obstructed {
 			
 			obstructed = append(obstructed,v.Id)
 			for i := 0; i < elevator.N_FLOORS; i++ {
@@ -180,7 +166,7 @@ func resolveObstrucedElevators(elevatorMap map[string]elevator.Elevator,healthyE
 }
 
 
-func redistributeObstructedOrders(obstructedElevators int, healthyElevators *map[string]elevator.Elevator, obstructedOrders [4][2]bool){
+func redistributeObstructedOrders(obstructedElevators int, healthyElevators *map[string]AssignerInput, obstructedOrders [4][2]bool){
 	if obstructedElevators!= 0 {
 		for id,v := range *healthyElevators{
 			tempElev := v

@@ -22,24 +22,24 @@ func Network_fsm(networkUpdateTx_ch chan Msg, networkUpdateRx_ch chan Msg, peerU
 	go TransmitterBcast(20029, networkTx)
 	go ReceiverBcast(20029, networkRx)
 
-	for {
-		select {
-		case p := <-peerUpdateCh:
-			peerUpdate_ch <- p
-			fmt.Printf("Peer update:\n")
-			fmt.Printf("  Peers:    %q\n", p.Peers)
-			fmt.Printf("  New:      %q\n", p.New)
-			fmt.Printf("  Lost:     %q\n", p.Lost)
+	// for {
+	// 	select {
+	// 	case p := <-peerUpdateCh:
+	// 		peerUpdate_ch <- p
+	// 		fmt.Printf("Peer update:\n")
+	// 		fmt.Printf("  Peers:    %q\n", p.Peers)
+	// 		fmt.Printf("  New:      %q\n", p.New)
+	// 		fmt.Printf("  Lost:     %q\n", p.Lost)
 
-		case a := <-networkRx:
-			if a.Elevator.Id != id {
+	// 	case a := <-networkRx:
+	// 		if a.Elevator.Id != id {
 
-				networkUpdateRx_ch <- a
+	// 			networkUpdateRx_ch <- a
 
-			}
+	// 		}
 
-		case i := <-networkUpdateTx_ch:
-			networkTx <- i
-		}
-	}
+	// 	case i := <-networkUpdateTx_ch:
+	// 		networkTx <- i
+	// 	}
+	// }
 }

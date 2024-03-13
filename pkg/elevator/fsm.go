@@ -9,7 +9,7 @@ import (
 	"project.com/pkg/timer"
 )
 
-func FSM(requestUpdate_ch chan [N_FLOORS][N_BUTTONS]bool, clearRequest_ch chan [N_FLOORS][N_BUTTONS]bool, stateToInfobank_ch chan State, lightUpdate_ch chan [N_FLOORS][N_BUTTONS]bool) {
+func FSM(requestUpdate_ch chan [N_FLOORS][N_BUTTONS]bool, clearRequestToInfobank_ch chan [N_FLOORS][N_BUTTONS]bool, stateToInfobank_ch chan State, lightUpdate_ch chan [N_FLOORS][N_BUTTONS]bool, elevatorInit_ch chan Elevator) {
 
 	floorSensor_ch := make(chan int)
 	obstruction_ch := make(chan bool)
@@ -21,7 +21,7 @@ func FSM(requestUpdate_ch chan [N_FLOORS][N_BUTTONS]bool, clearRequest_ch chan [
 	go PeriodicCheck(selfCheck_ch)
 
 	elevator := new(Elevator)
-	//*elevator = <-elevInitFSM_ch
+	*elevator = <-elevatorInit_ch
 	//prevelevator := *elevator
 	obstruction := GetObstruction()
 	//standstill := 0
@@ -31,7 +31,7 @@ func FSM(requestUpdate_ch chan [N_FLOORS][N_BUTTONS]bool, clearRequest_ch chan [
 		case requests := <-requestUpdate_ch:
 			elevator.Requests = requests
 			if quickClear(elevator, timer_ch) {
-				clearRequest_ch <- elevator.Requests
+				clearRequestToInfobank_ch <- elevator.Requests
 				break	
 			} 
 			fsmNewRequests(elevator, timer_ch)
@@ -47,7 +47,7 @@ func FSM(requestUpdate_ch chan [N_FLOORS][N_BUTTONS]bool, clearRequest_ch chan [
 			ShouldStop := fsmOnFloorArrival(elevator, newFloor, timer_ch)
 			stateToInfobank_ch <- elevator.State
 			if ShouldStop {
-				clearRequest_ch <- elevator.Requests
+				clearRequestToInfobank_ch <- elevator.Requests
 			}
 			
 

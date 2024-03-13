@@ -1,4 +1,4 @@
-package hallrequestassigner
+package assigner
 
 import (
 	"encoding/json"

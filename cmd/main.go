@@ -34,15 +34,20 @@ func primaryProcess(lastID string, port string, udpSendAddr string) {
 	}
 	defer conn.Close()
 
-	FSMxInfoBank1_ch := make(chan elevator.Elevator, 50)
-	FSMxInfoBank2_ch := make(chan elevator.Elevator, 50)
+	const BUFFER_SIZE = 50
+
+	requestUpdate_ch := make(chan [elevator.N_FLOORS][elevator.N_BUTTONS]bool, BUFFER_SIZE)
+	clearRequest_ch := make(chan [elevator.N_FLOORS][elevator.N_BUTTONS]bool, BUFFER_SIZE)
+	stateUpdate_ch := make(chan elevator.State, BUFFER_SIZE)
+	lightsUpdate_ch := make(chan [elevator.N_FLOORS][elevator.N_BUTTONS]bool, BUFFER_SIZE)
+
 	elevInitFSM_ch := make(chan elevator.Elevator, 50)
 	//networkUpdateTx_ch := make(chan network.Msg, 50)
 	//networkUpdateRx_ch := make(chan network.Msg, 50)
 	//peerUpdate_ch := make(chan network.PeerUpdate, 50)
 
-	go elevator.FSM(FSMxInfoBank1_ch, FSMxInfoBank2_ch, elevInitFSM_ch)
-	//go infobank.Infobank_FSM(FSMxInfoBank1_ch, FSMxInfoBank2_ch, networkUpdateTx_ch, networkUpdateRx_ch, peerUpdate_ch)
+	go elevator.FSM(requestUpdate_ch, clearRequest_ch, stateUpdate_ch, lightsUpdate_ch, elevInitFSM_ch)
+	go infobank.Infobank(requestUpdate_ch, clearRequest_ch, stateUpdate_ch, lightsUpdate_ch, networkUpdateRx_ch, peerUpdate_ch)
 	//go network.Network_fsm(networkUpdateTx_ch, networkUpdateRx_ch, peerUpdate_ch)
 	ID, err := network.LocalIP()
 
