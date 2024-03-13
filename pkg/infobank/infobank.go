@@ -62,7 +62,7 @@ func Infobank_FSM(
 
 			if msgType == network.ObstructedMsg {
 				evaluateRequests(elevatorMap, &thisElevator)
-				elevStatusUpdate_ch <- thisElevator
+				toFSM_ch <- thisElevator
 			}
 
 			msg := network.Msg{
@@ -99,7 +99,7 @@ func Infobank_FSM(
 
 				handleNewOrder(elevatorMap, &Msg.Elevator, &thisElevator)
 
-				elevStatusUpdate_ch <- thisElevator
+				toFSM_ch <- thisElevator
 			}
 
 		case <-periodicUpdate_ch:
@@ -233,7 +233,6 @@ func setElevatorAsignments(elevatorMap map[string]elevator.Elevator, e *elevator
 	e.Requests = elevatorMap[e.Id].Requests
 }
 
-
 func saveCabCallsToFile(e elevator.Elevator) error {
 	requests := e.Requests
 	filename := e.Id
@@ -275,8 +274,8 @@ func boolToString(value bool) string {
 		return "true"
 	} else {
 		return "false"
-  }
-}  
+	}
+}
 func SyncronizeAll(thisElevator elevator.Elevator, elevatorMap map[string]elevator.Elevator, recievedElevator elevator.Elevator, button_ch chan elevator.ButtonEvent) {
 	combinedrequests := thisElevator.Requests
 

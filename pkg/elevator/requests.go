@@ -33,10 +33,8 @@ func requestsHere(e Elevator) bool {
 }
 
 func requestShouldStop(e Elevator) bool {
-	fmt.Printf("Requests below: %v \n", requestsBelow(e))
 	switch e.Dirn {
 	case MD_Down:
-		fmt.Print("I think i am moving down \n")
 		return (e.Requests[e.Floor][BT_HallDown] ||
 			e.Requests[e.Floor][BT_Cab] ||
 			!requestsBelow(e))
@@ -143,12 +141,12 @@ func requests_shouldClearImmediately(e Elevator) bool {
 				return true
 			}
 		case MD_Stop:
-			if buttonevent.Button == BT_HallDown || buttonevent.Button == BT_Cab || buttonevent.Button == BT_HallUp{
+			if buttonevent.Button == BT_HallDown || buttonevent.Button == BT_Cab || buttonevent.Button == BT_HallUp {
 				return true
 			}
 
 		}
-	
+
 	}
 	return false
 }
