@@ -33,6 +33,7 @@ type Diagnose int
 const (
 	Healthy				Diagnose = iota
 	Obstructed			
-	MotorProblem
-	Other
+	Problem
+	Unchanged
+	
 )
