@@ -1,7 +1,8 @@
 package elevator
 
 import (
-	"fmt"
+	//"fmt"
+	//"fmt"
 	"time"
 
 	"project.com/pkg/timer"
@@ -68,6 +69,7 @@ func FSM(elevStatusUpdate_ch chan Elevator) {
 					elevator.Obstructed = false
 				case Obstructed:
 					elevator.Obstructed = true
+					elevator.OrderCounter++
 					elevStatusUpdate_ch <- *elevator
 				case MotorProblem:
 					//Reboot
