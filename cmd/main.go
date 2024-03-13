@@ -10,6 +10,7 @@ import (
 	"project.com/pkg/elevator"
 	"project.com/pkg/infobank"
 	"project.com/pkg/network"
+	"project.com/pkg/initialize"
 )
 
 const (
@@ -40,18 +41,20 @@ func primaryProcess(lastID string, port string, udpSendAddr string) {
 	clearRequest_ch := make(chan [elevator.N_FLOORS][elevator.N_BUTTONS]bool, BUFFER_SIZE)
 	stateUpdate_ch := make(chan elevator.State, BUFFER_SIZE)
 	lightsUpdate_ch := make(chan [elevator.N_FLOORS][elevator.N_BUTTONS]bool, BUFFER_SIZE)
+	obstruction_ch := make(chan bool, BUFFER_SIZE)
 
 	elevInitFSM_ch := make(chan elevator.Elevator, 50)
-	//networkUpdateTx_ch := make(chan network.Msg, 50)
-	//networkUpdateRx_ch := make(chan network.Msg, 50)
-	//peerUpdate_ch := make(chan network.PeerUpdate, 50)
+	elevInitInfobank_ch := make(chan infobank.ElevatorInfo)
+	networkUpdateTx_ch := make(chan network.Msg, 50)
+	networkUpdateRx_ch := make(chan network.Msg, 50)
+	peerUpdate_ch := make(chan network.PeerUpdate, 50)
 
 	go elevator.FSM(requestUpdate_ch, clearRequest_ch, stateUpdate_ch, lightsUpdate_ch, elevInitFSM_ch)
-	go infobank.Infobank(requestUpdate_ch, clearRequest_ch, stateUpdate_ch, lightsUpdate_ch, networkUpdateRx_ch, peerUpdate_ch)
+	go infobank.Infobank(requestUpdate_ch, clearRequest_ch, stateUpdate_ch, lightsUpdate_ch, networkUpdateTx_ch, networkUpdateRx_ch, peerUpdate_ch, obstruction_ch)
 	//go network.Network_fsm(networkUpdateTx_ch, networkUpdateRx_ch, peerUpdate_ch)
 	ID, err := network.LocalIP()
 
-	elevator.ElevatorInit(FSMxInfoBank1_ch, elevInitFSM_ch, lastID, ID)
+	initialize.ElevatorInit(elevInitInfobank_ch, elevInitFSM_ch, lastID, ID)
 
 	for {
 		msg := ID

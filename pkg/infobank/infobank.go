@@ -3,8 +3,9 @@ package infobank
 import (
 	"fmt"
 	"time"
-	"project.com/pkg/elevator"
+
 	"project.com/pkg/assigner"
+	"project.com/pkg/elevator"
 	"project.com/pkg/network"
 	//"project.com/pkg/timer"
 )
