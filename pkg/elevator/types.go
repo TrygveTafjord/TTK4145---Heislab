@@ -35,16 +35,3 @@ const (
 	Problem
 	Unchanged
 )
-
-type OldElevator struct {
-	Id                  string
-	OrderClearedCounter int
-	OrderCounter        int
-	Floor               int
-	Dirn                MotorDirection
-	Requests            [N_FLOORS][N_BUTTONS]bool
-	Lights              [N_FLOORS][N_BUTTONS]bool
-	Behaviour           ElevatorBehaviour
-	Standstill          int
-	Obstructed          bool
-}

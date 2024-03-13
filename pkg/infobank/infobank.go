@@ -1,10 +1,7 @@
 package infobank
 
 import (
-	"encoding/csv"
 	"fmt"
-	"os"
-	"strconv"
 	"time"
 
 	"project.com/pkg/elevator"
@@ -14,11 +11,14 @@ import (
 )
 
 func Infobank_FSM(
-	toFSM_ch chan elevator.Elevator,
-	fromFSM_ch chan elevator.Elevator,
+	requestUpdateToFSM_ch chan [elevator.N_FLOORS][elevator.N_BUTTONS]bool,
+	clearRequestFromFSM_ch chan [elevator.N_FLOORS][elevator.N_BUTTONS]bool, 
+	stateUpdateFromFSM_ch chan elevator.State, 
+	lightsUpdateToFSM_ch chan [elevator.N_FLOORS][elevator.N_BUTTONS]bool,
 	networkUpdateTx_ch chan network.Msg,
 	networkUpdateRx_ch chan network.Msg,
 	peerUpdate_ch chan network.PeerUpdate,
+	obstructionFromFSM_ch chan bool,
 ) {
 
 	button_ch := make(chan elevator.ButtonEvent, 50)
@@ -35,43 +35,56 @@ func Infobank_FSM(
 
 	for {
 		select {
-		case btn := <-button_ch:
-
-			thisElevator.Requests[btn.Floor][btn.Button] = true
+		case buttonEvent := <-button_ch:
+			thisElevator.Requests[buttonEvent.Floor][buttonEvent.Button] = true
 			thisElevator.OrderCounter++
+			evaluateRequests(elevatorMap, &thisElevator)
 
+			requestUpdateToFSM_ch <- thisElevator.Requests
+			lightsUpdateToFSM_ch <- thisElevator.Lights
+			
 			msg := network.Msg{
 				MsgType:  network.NewOrder,
 				Elevator: thisElevator,
 			}
-
 			networkUpdateTx_ch <- msg
 
+		case obstructed := <- obstructionFromFSM_ch:
+			thisElevator.State.Obstructed = obstructed
 			evaluateRequests(elevatorMap, &thisElevator)
+				//kan implementere en cycle her, 
+			msg := ObstructedMsg { 
+				Id: thisElevator.Id, 
+				Obstructed: obstructed,
+			}				
+			obstructionNetwork_ch <- msg 
+		
+		case newState := <- stateUpdateFromFSM_ch:
 
-			toFSM_ch <- thisElevator
-
-		case newState := <-fromFSM_ch:
-			err := saveCabCallsToFile(newState)
-			if err != nil {
-				fmt.Printf("Failed to write to CSV file. \n")
+			thisElevator.State = newState
+			msg := StateMsg { 
+				Id: thisElevator.Id, 
+				State: newState,
 			}
 
-			msgType := calculateMsgType(newState, thisElevator)
-			storeFsmUpdate(elevatorMap, &thisElevator, &newState)
+			newStateNetwork_ch <- msg 
+			
 
-			if msgType == network.ObstructedMsg {
-				evaluateRequests(elevatorMap, &thisElevator)
-				toFSM_ch <- thisElevator
+			elevatorMap[thisElevator.Id] = thisElevator
+			
+
+
+		case updatedRequests := <- clearRequestFromFSM_ch:
+			thisElevator.Requests = updatedRequests
+			elevatorMap[thisElevator.Id] =thisElevator
+			
+			msg := RequestClearedMsg { 
+				Direction: thisElevator.Dirn, 
+				Floor: thisElevator.State.Floor,
 			}
 
-			msg := network.Msg{
-				MsgType:  msgType,
-				Elevator: thisElevator,
-			}
-
-			networkUpdateTx_ch <- msg
-
+			requestClearedNetwork_ch <- msg
+			
 		case Msg := <-networkUpdateRx_ch:
 
 			switch Msg.MsgType {
@@ -164,7 +177,6 @@ func evaluateRequests(elevatorMap map[string]elevator.Elevator, e *elevator.Elev
 	setElevatorMap(hallRequestsMap, &elevatorMap)
 	setElevatorAsignments(elevatorMap, e)
 	setLightMatrix(hallRequestsMap, e)
-
 }
 
 func handleNewOrder(elevatorMap map[string]elevator.Elevator, recievedElevator *elevator.Elevator, thisElevator *elevator.Elevator) {
@@ -233,40 +245,40 @@ func setElevatorAsignments(elevatorMap map[string]elevator.Elevator, e *elevator
 	e.Requests = elevatorMap[e.Id].Requests
 }
 
-func saveCabCallsToFile(e elevator.Elevator) error {
-	requests := e.Requests
-	filename := e.Id
+// func saveInfoToFile(e elevator.Elevator) error {
+// 	requests := e.Requests
+// 	filename := e.Id
 
-	file, err := os.Create(filename)
-	if err != nil {
-		fmt.Printf("Failed to open file: %v", err)
-	}
+// 	file, err := os.Create(filename)
+// 	if err != nil {
+// 		fmt.Printf("Failed to open file: %v", err)
+// 	}
 
-	defer file.Close()
+// 	defer file.Close()
 
-	writer := csv.NewWriter(file)
+// 	writer := csv.NewWriter(file)
 
-	var records [][]string
-	for _, row := range requests {
-		cabReq := row[2]
-		records = append(records, []string{boolToString(cabReq)})
-	}
+// 	var records [][]string
+// 	for _, row := range requests {
+// 		cabReq := row[2]
+// 		records = append(records, []string{boolToString(cabReq)})
+// 	}
 
-	records = append(records, []string{"OCC:" + strconv.Itoa(e.OrderClearedCounter)})
-	records = append(records, []string{"OC:" + strconv.Itoa(e.OrderCounter)})
-	records = append(records, []string{"BH:" + strconv.Itoa(int(e.Behaviour))})
-	records = append(records, []string{"DIR:" + strconv.Itoa(int(e.Dirn))})
+// 	records = append(records, []string{"OCC:" + strconv.Itoa(e.OrderClearedCounter)})
+// 	records = append(records, []string{"OC:" + strconv.Itoa(e.OrderCounter)})
+// 	records = append(records, []string{"BH:" + strconv.Itoa(int(e.Behaviour))})
+// 	records = append(records, []string{"DIR:" + strconv.Itoa(int(e.Dirn))})
 
-	for _, record := range records {
-		if err := writer.Write(record); err != nil {
-			return fmt.Errorf("failed to write to CSV: %v", err)
-		}
-	}
+// 	for _, record := range records {
+// 		if err := writer.Write(record); err != nil {
+// 			return fmt.Errorf("failed to write to CSV: %v", err)
+// 		}
+// 	}
 
-	writer.Flush()
-	return nil
+// 	writer.Flush()
+// 	return nil
 
-}
+// }
 
 func boolToString(value bool) string {
 
