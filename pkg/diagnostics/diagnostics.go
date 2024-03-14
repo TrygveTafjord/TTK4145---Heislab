@@ -1,6 +1,7 @@
 package diagnostics
 
 import (
+	"os"
 	"time"
 
 	"project.com/pkg/elevator"
@@ -39,6 +40,7 @@ func Diagnostics(updateFromFSM_ch chan elevator.Elevator, obstructionDiagnose_ch
 						}
 						
 					case Reinitialize:
+						os.Exit(1)
 						//Reinit fra Ole!
 				}
 				prevState = currentState

@@ -62,8 +62,6 @@ func Infobank(
 			newRequestToNetwork_ch <- msg
 
 		case obstructed := <- obstructionFromFSM_ch:
-			fmt.Printf("Infobank recieved obstructed from FSM!, with the value: %v\n", obstructed)
-			fmt.Printf("Infobank recieved obstructed from FSM!\n")
 			thisElevator.State.Obstructed = obstructed
 			evaluateRequests(elevatorMap, &thisElevator)
 				//kan implementere en cycle her, 
