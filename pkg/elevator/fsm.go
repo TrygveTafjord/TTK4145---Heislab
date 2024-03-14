@@ -17,7 +17,7 @@ func FSM(elevatorInit_ch chan Elevator,
 		lightUpdate_ch chan [N_FLOORS][N_BUTTONS]bool, 
 		obstructedStateToInfobank_ch chan bool,
 		updateDiagnostics_ch chan Elevator,
-		obstructionDiagnoze_ch chan bool) {
+		obstructionDiagnose_ch chan bool) {
 
 	floorSensor_ch := make(chan int)
 	obstruction_ch := make(chan bool)
@@ -33,7 +33,6 @@ func FSM(elevatorInit_ch chan Elevator,
 		select {
 		case requests := <-requestUpdate_ch:
 			elevator.Requests = requests
-			fmt.Printf("requests: %v", requests)
 			fsmNewRequests(elevator, timer_ch)
 			if elevator.Requests != requests {
 				clearRequestToInfobank_ch <- getClearedRequests(requests, elevator.Requests)
@@ -70,7 +69,8 @@ func FSM(elevatorInit_ch chan Elevator,
 				} 
 			}
 
-		case <- obstructionDiagnoze_ch:
+		case <- obstructionDiagnose_ch:
+			fmt.Printf("FSM recieved obstructed from diagnoze!\n")
 			elevator.State.Obstructed = true
 			obstructedStateToInfobank_ch <- true
 		}
@@ -159,54 +159,6 @@ func PeriodicCheck(selfCheck_ch chan bool) {
 	}
 }
 
-// func Selfdiagnose(elevator *Elevator, prevElevator *Elevator, obstruction bool, standstill *int) Diagnose {
-// 	hasRequests := Check_request(*elevator)
-
-// 	if hasRequests && elevator.State.Behaviour == prevElevator.State.Behaviour {
-
-// 		switch elevator.State.Behaviour {
-// 		case EB_Idle:
-// 			*prevElevator = *elevator
-// 			return Problem
-
-// 		case EB_DoorOpen:
-// 			if elevator.State.Floor == prevElevator.State.Floor {
-// 				*standstill += 1
-// 			}
-// 		case EB_Moving:
-// 			if elevator.State.Floor == prevElevator.State.Floor {
-// 				*standstill += 1
-// 			}
-// 		}
-// 		*prevElevator = *elevator
-
-// 		if *standstill > 10 && obstruction {
-// 			return Obstructed
-// 		} else if *standstill == 20 && !obstruction {
-// 			return Problem
-// 		}
-
-// 	} else if obstruction {
-// 		*prevElevator = *elevator
-// 		return Unchanged
-
-// 	} else {
-// 		*standstill = 0
-// 		*prevElevator = *elevator
-// 	}
-// 	return Healthy
-// }
-
-// func Check_request(elevator Elevator) bool {
-// 	for i := 0; i < N_FLOORS; i++ {
-// 		for j := 0; j < N_BUTTONS; j++ {
-// 			if elevator.Requests[i][j] {
-// 				return true
-// 			}
-// 		}
-// 	}
-// 	return false
-// }
 
 func getClearedRequests(oldRequests [N_FLOORS][N_BUTTONS]bool, newRequests [N_FLOORS][N_BUTTONS]bool) []ButtonEvent{
 	var clearedRequests []ButtonEvent

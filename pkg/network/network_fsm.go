@@ -52,7 +52,6 @@ func Network(
 			if msg.Id != id {
 				newRequestToInfobank_ch <- msg
 			}
-
 		case msg := <- newRequestFromInfobank_ch:
 			newRequestTx_ch <- msg
 		
@@ -70,8 +69,13 @@ func Network(
 			if msg.Id != id {
 				requestClearedToInfobank_ch <- msg
 			}
-		}
-		
+		case msg := <- obstructedFromInfobank_ch:
+			obstructedTx_ch <- msg
 
+		case msg := <- obstructedRx_ch:
+			if msg.Id != id {
+				obstructedToInfobank_ch <- msg
+			}
+			} 
 	}
 }

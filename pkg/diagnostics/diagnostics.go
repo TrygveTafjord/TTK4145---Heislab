@@ -1,14 +1,13 @@
 package diagnostics
 
 import (
-	"fmt"
 	"time"
 
 	"project.com/pkg/elevator"
 )
 
 
-func Diagnostics(updateFromFSM_ch chan elevator.Elevator, obstructionDiagnoze_ch chan bool){
+func Diagnostics(updateFromFSM_ch chan elevator.Elevator, obstructionDiagnose_ch chan bool){
 	timeInSameStateWhileOrders := 0
 	currentState := <-updateFromFSM_ch
 	prevState 	 := currentState
@@ -28,20 +27,16 @@ func Diagnostics(updateFromFSM_ch chan elevator.Elevator, obstructionDiagnoze_ch
 				} else {
 					timeInSameStateWhileOrders = 0
 				}
-				fmt.Printf("timeInStateWhithOrders: %v\n", timeInSameStateWhileOrders)
-
 				diagnose := selfDiagnose(currentState, timeInSameStateWhileOrders)
 								
 				switch diagnose {
 				
 					case Healthy:
-						fmt.Printf("Healty!\n")
 						
 					case Obstructed:
-						fmt.Printf("Obstructed!\n")
-						obstructionDiagnoze_ch <- true
+						obstructionDiagnose_ch <- true
+						
 					case Reinitialize:
-						fmt.Printf("Reinitialize!\n")
 				}
 				prevState = currentState
 			}
