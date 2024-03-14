@@ -3,7 +3,6 @@ package elevator
 import (
 	//"fmt"
 	//"fmt"
-
 	"fmt"
 	"time"
 
@@ -42,14 +41,13 @@ func FSM(requestUpdate_ch chan [N_FLOORS][N_BUTTONS]bool, clearRequestToInfobank
 			setAllLights(elevator)
 
 		case newFloor := <-floorSensor_ch:
-			
+
 			requestsBeforeNewFloor := elevator.Requests
 			fsmOnFloorArrival(elevator, newFloor, timer_ch)
 			stateToInfobank_ch <- elevator.State
-			if requestsBeforeNewFloor != elevator.Requests{
+			if requestsBeforeNewFloor != elevator.Requests {
 				clearRequestToInfobank_ch <- getClearedRequests(requestsBeforeNewFloor, elevator.Requests)
 			}
-			
 
 		case <-timer_ch:
 			HandleDeparture(elevator, timer_ch, obstruction)
@@ -95,7 +93,7 @@ func fsmOnFloorArrival(e *Elevator, newFloor int, timer_ch chan bool) {
 
 	if requestShouldStop(*e) {
 		SetMotorDirection(MD_Stop)
-			//e.Dirn = MD_Stop // Ole added march 12, needed for re-init
+		//e.Dirn = MD_Stop // Ole added march 12, needed for re-init
 		SetDoorOpenLamp(true)
 		requests_clearAtCurrentFloor(e)
 		go timer.Run_timer(3, timer_ch)
@@ -204,7 +202,7 @@ func Check_request(elevator Elevator) bool {
 	return false
 }
 
-func getClearedRequests(oldRequests [N_FLOORS][N_BUTTONS]bool, newRequests [N_FLOORS][N_BUTTONS]bool) []ButtonEvent{
+func getClearedRequests(oldRequests [N_FLOORS][N_BUTTONS]bool, newRequests [N_FLOORS][N_BUTTONS]bool) []ButtonEvent {
 	var clearedRequests []ButtonEvent
 	for i := 0; i < N_FLOORS; i++ {
 		for j := 0; j < N_BUTTONS; j++ {

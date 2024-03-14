@@ -18,11 +18,10 @@ const (
 )
 
 func startBackupProcess(port string) {
-	fmt.Print("I get here")
 	exec.Command("gnome-terminal", "--", "go", "run", "main.go", port).Run()
 }
 
-func primaryProcess(lastID string, udpSendAddr string) {
+func primaryProcess(port string, udpSendAddr string) {
 	sendUDPAddr, err := net.ResolveUDPAddr("udp", udpSendAddr)
 	if err != nil {
 		fmt.Println(err)
@@ -38,32 +37,33 @@ func primaryProcess(lastID string, udpSendAddr string) {
 	const BUFFER_SIZE = 50
 
 	requestUpdate_ch := make(chan [elevator.N_FLOORS][elevator.N_BUTTONS]bool, BUFFER_SIZE)
-	clearRequest_ch  := make(chan []elevator.ButtonEvent, BUFFER_SIZE)
-	stateUpdate_ch   := make(chan elevator.State, BUFFER_SIZE)
-	lightsUpdate_ch  := make(chan [elevator.N_FLOORS][elevator.N_BUTTONS]bool, BUFFER_SIZE)
-	obstruction_ch   := make(chan bool, BUFFER_SIZE)
+	clearRequest_ch := make(chan []elevator.ButtonEvent, BUFFER_SIZE)
+	stateUpdate_ch := make(chan elevator.State, BUFFER_SIZE)
+	lightsUpdate_ch := make(chan [elevator.N_FLOORS][elevator.N_BUTTONS]bool, BUFFER_SIZE)
+	obstruction_ch := make(chan bool, BUFFER_SIZE)
 
-	initFSM_ch      := make(chan elevator.Elevator)
+	initFSM_ch := make(chan elevator.Elevator)
 	initInfobank_ch := make(chan infobank.ElevatorInfo)
-	initNetwork     := make(chan string)
+	initNetwork := make(chan string)
 
-	requestInfobankToNetwork_ch 	:= make(chan network.NewRequest, BUFFER_SIZE)
-	requestNetworkToInfobank_ch 	:= make(chan network.NewRequest, BUFFER_SIZE)
-	obstructedInfobankToNetwork_ch  := make(chan network.Obstructed, BUFFER_SIZE)
-	obstructedNetworkToInfobank_ch 	:= make(chan network.Obstructed, BUFFER_SIZE)
-	stateInfobankToNetwork_ch 	  	:= make(chan network.StateUpdate, BUFFER_SIZE)
-	stateNetworkToInfobank_ch 	  	:= make(chan network.StateUpdate, BUFFER_SIZE)
-	clearedInfobankToNetwork_ch 	:= make(chan network.RequestCleared, BUFFER_SIZE)
-	clearedNetworkToInfobank_ch  	:= make(chan network.RequestCleared, BUFFER_SIZE)
+	requestInfobankToNetwork_ch := make(chan network.NewRequest, BUFFER_SIZE)
+	requestNetworkToInfobank_ch := make(chan network.NewRequest, BUFFER_SIZE)
+	obstructedInfobankToNetwork_ch := make(chan network.Obstructed, BUFFER_SIZE)
+	obstructedNetworkToInfobank_ch := make(chan network.Obstructed, BUFFER_SIZE)
+	stateInfobankToNetwork_ch := make(chan network.StateUpdate, BUFFER_SIZE)
+	stateNetworkToInfobank_ch := make(chan network.StateUpdate, BUFFER_SIZE)
+	clearedInfobankToNetwork_ch := make(chan network.RequestCleared, BUFFER_SIZE)
+	clearedNetworkToInfobank_ch := make(chan network.RequestCleared, BUFFER_SIZE)
+
 
 	peerUpdate_ch := make(chan network.PeerUpdate, 50)
 
 	go elevator.FSM(requestUpdate_ch, clearRequest_ch, stateUpdate_ch, lightsUpdate_ch, initFSM_ch)
 	go infobank.Infobank(initInfobank_ch, requestUpdate_ch, clearRequest_ch, stateUpdate_ch, lightsUpdate_ch, obstruction_ch, requestInfobankToNetwork_ch, requestNetworkToInfobank_ch, obstructedInfobankToNetwork_ch, obstructedNetworkToInfobank_ch, stateInfobankToNetwork_ch, stateNetworkToInfobank_ch, clearedInfobankToNetwork_ch, clearedNetworkToInfobank_ch, peerUpdate_ch)
 	go network.Network(initNetwork, requestNetworkToInfobank_ch, requestInfobankToNetwork_ch, obstructedNetworkToInfobank_ch, obstructedInfobankToNetwork_ch, stateNetworkToInfobank_ch, stateInfobankToNetwork_ch, clearedNetworkToInfobank_ch, clearedInfobankToNetwork_ch, peerUpdate_ch)
-	ID, err := network.LocalIP()
+	ID, err := network.LocalIP(port)
 
-	initialize.ElevatorInit(initInfobank_ch, initFSM_ch, initNetwork, lastID, ID)
+	initialize.ElevatorInit(initInfobank_ch, initFSM_ch, initNetwork, ID)
 
 	for {
 		msg := ID
@@ -107,20 +107,18 @@ func backupProcess() {
 	// 	fmt.Printf("could not get IP")
 	// }
 
-	var lastID string
-
 	for {
 		buffer := make([]byte, 1024)
 		conn.SetReadDeadline(time.Now().Add(heartbeatSleep * 5 * time.Millisecond))
-		n, _, err := conn.ReadFromUDP(buffer)
+		_, _, err := conn.ReadFromUDP(buffer)
 
 		if err == nil {
-			lastID = string(buffer[:n])
+			fmt.Print("on")
 		} else {
 			if e, ok := err.(net.Error); ok && e.Timeout() {
 				conn.Close()
 				startBackupProcess(port)
-				primaryProcess(lastID, udpSendAddr)
+				primaryProcess(port, udpSendAddr)
 				return
 			} else {
 				fmt.Println("Error reading from UDP:", err)

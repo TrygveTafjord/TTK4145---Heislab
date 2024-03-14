@@ -1,7 +1,10 @@
 package infobank
 
 import (
+	"encoding/csv"
 	"fmt"
+	"os"
+	"strconv"
 	"time"
 
 	"project.com/pkg/assigner"
@@ -11,22 +14,22 @@ import (
 )
 
 func Infobank(
-	init_ch							chan ElevatorInfo,
-	requestUpdateToFSM_ch 			chan [elevator.N_FLOORS][elevator.N_BUTTONS]bool,
-	clearRequestFromFSM_ch 			chan []elevator.ButtonEvent, 
-	stateUpdateFromFSM_ch 			chan elevator.State, 
-	lightsUpdateToFSM_ch 			chan [elevator.N_FLOORS][elevator.N_BUTTONS]bool,
-	obstructionFromFSM_ch 			chan bool,
-	newRequestToNetwork_ch 			chan network.NewRequest,
-	newRequestFromNetwork_ch 		chan network.NewRequest,
-	obstructedToNetwork_ch 			chan network.Obstructed,
-	obstructedFromNetwork_ch 		chan network.Obstructed,
-	stateUpdateToNetwork_ch 		chan network.StateUpdate,
-	stateUpdateFromNetwork_ch 		chan network.StateUpdate,
-	requestClearedToNetwork_ch 		chan network.RequestCleared,
-	requestClearedFromNetwork_ch 	chan network.RequestCleared,
-	peerUpdate_ch 					chan network.PeerUpdate,
-	
+	init_ch chan ElevatorInfo,
+	requestUpdateToFSM_ch chan [elevator.N_FLOORS][elevator.N_BUTTONS]bool,
+	clearRequestFromFSM_ch chan []elevator.ButtonEvent,
+	stateUpdateFromFSM_ch chan elevator.State,
+	lightsUpdateToFSM_ch chan [elevator.N_FLOORS][elevator.N_BUTTONS]bool,
+	obstructionFromFSM_ch chan bool,
+	newRequestToNetwork_ch chan network.NewRequest,
+	newRequestFromNetwork_ch chan network.NewRequest,
+	obstructedToNetwork_ch chan network.Obstructed,
+	obstructedFromNetwork_ch chan network.Obstructed,
+	stateUpdateToNetwork_ch chan network.StateUpdate,
+	stateUpdateFromNetwork_ch chan network.StateUpdate,
+	requestClearedToNetwork_ch chan network.RequestCleared,
+	requestClearedFromNetwork_ch chan network.RequestCleared,
+	peerUpdate_ch chan network.PeerUpdate,
+
 ) {
 
 	button_ch := make(chan elevator.ButtonEvent, 50)
@@ -37,17 +40,23 @@ func Infobank(
 
 	elevatorMap := make(map[string]ElevatorInfo)
 	//hallRequestsMap := make(map[string][4][2]bool)
-	thisElevator := <- init_ch
+	thisElevator := <-init_ch
+	inheritedRequests := inheritedRequests(thisElevator)
+	for _, reqs := range inheritedRequests {
+		button_ch <- reqs
+	}
 	fmt.Printf("init id: %v \n", thisElevator.Id)
 
 	elevatorMap[thisElevator.Id] = thisElevator
 
 	for {
 		select {
+
 		case buttonEvent := <-button_ch:
 
 			thisElevator.Requests[buttonEvent.Floor][buttonEvent.Button] = true
 			elevatorMap[thisElevator.Id] = thisElevator
+			saveInfoToFile(thisElevator)
 			assignerList := createAssignerInput(elevatorMap)
 			hallRequestsMap := assigner.AssignHallRequests(assignerList)
 			setElevatorMap(hallRequestsMap, &elevatorMap)
@@ -55,37 +64,37 @@ func Infobank(
 			setLightMatrix(hallRequestsMap, &thisElevator)
 			lightsUpdateToFSM_ch <- thisElevator.Lights
 			requestUpdateToFSM_ch <- thisElevator.Requests
-
 			msg := network.NewRequest{
-				Id:		 thisElevator.Id,
+				Id:      thisElevator.Id,
 				Request: buttonEvent,
 			}
 
 			newRequestToNetwork_ch <- msg
 
-		case obstructed := <- obstructionFromFSM_ch:
+		case obstructed := <-obstructionFromFSM_ch:
 			thisElevator.State.Obstructed = obstructed
 			evaluateRequests(elevatorMap, &thisElevator)
-				//kan implementere en cycle her, 
-			msg := network.Obstructed { 
-				Id: thisElevator.Id, 
+			//kan implementere en cycle her,
+			msg := network.Obstructed{
+				Id:         thisElevator.Id,
 				Obstructed: obstructed,
 			}
-			obstructedToNetwork_ch <- msg 
-		
-		case newState := <- stateUpdateFromFSM_ch:
+			obstructedToNetwork_ch <- msg
+
+		case newState := <-stateUpdateFromFSM_ch:
 
 			thisElevator.State = newState
-			msg := network.StateUpdate { 
-				Id: thisElevator.Id, 
+			saveInfoToFile(thisElevator)
+			msg := network.StateUpdate{
+				Id:    thisElevator.Id,
 				State: newState,
 			}
 
-			stateUpdateToNetwork_ch <- msg 
-			
+			stateUpdateToNetwork_ch <- msg
+
 			elevatorMap[thisElevator.Id] = thisElevator
 
-		case clearedRequests := <- clearRequestFromFSM_ch:
+		case clearedRequests := <-clearRequestFromFSM_ch:
 
 			for _, requests := range clearedRequests {
 				thisElevator.Requests[requests.Floor][requests.Button] = false
@@ -93,40 +102,38 @@ func Infobank(
 			}
 			thisElevator.Requests[clearedRequests[0].Floor][elevator.BT_Cab] = false
 			thisElevator.Lights[clearedRequests[0].Floor][elevator.BT_Cab] = false
-			
+			saveInfoToFile(thisElevator)
+			fmt.Printf("In the case, the ID is: %v \n \n ", thisElevator.Id)
 			elevatorMap[thisElevator.Id] = thisElevator
 
-			msg := network.RequestCleared { 
-				Id:		  		  thisElevator.Id,
-				ClearedRequests:  clearedRequests,
+			msg := network.RequestCleared{
+				Id:              thisElevator.Id,
+				ClearedRequests: clearedRequests,
 			}
 			requestClearedToNetwork_ch <- msg
 
-
-
-			
 		case msg := <-newRequestFromNetwork_ch:
 			updatedElev := elevatorMap[msg.Id]
 			updatedElev.Requests[msg.Request.Floor][msg.Request.Button] = true
 			elevatorMap[msg.Id] = updatedElev
-
+			//save info to file????
 			assignerList := createAssignerInput(elevatorMap)
 			hallRequestsMap := assigner.AssignHallRequests(assignerList)
-			
+
 			setElevatorMap(hallRequestsMap, &elevatorMap)
 			setLightMatrix(hallRequestsMap, &thisElevator)
-			
+
 			thisElevator.Requests = elevatorMap[thisElevator.Id].Requests
 
 			lightsUpdateToFSM_ch <- thisElevator.Lights
 			requestUpdateToFSM_ch <- thisElevator.Requests
-		
+
 		case msg := <-stateUpdateFromNetwork_ch:
 			updatedElev := elevatorMap[msg.Id]
 			updatedElev.State = msg.State
 			elevatorMap[msg.Id] = updatedElev
-		
-		case msg := <- requestClearedFromNetwork_ch:
+
+		case msg := <-requestClearedFromNetwork_ch:
 
 			updatedElev := elevatorMap[msg.Id]
 			for _, requests := range msg.ClearedRequests {
@@ -135,63 +142,60 @@ func Infobank(
 			}
 			elevatorMap[msg.Id] = updatedElev
 			lightsUpdateToFSM_ch <- thisElevator.Lights
-		
-		case <- periodicUpdate_ch:
-			msg := network.StateUpdate { 
-				Id: thisElevator.Id, 
+
+		case <-periodicUpdate_ch:
+			msg := network.StateUpdate{
+				Id:    thisElevator.Id,
 				State: thisElevator.State,
 			}
 
-			stateUpdateToNetwork_ch <- msg 
+			stateUpdateToNetwork_ch <- msg
 
+			// case Msg := <-networkUpdateRx_ch:
 
+			// 	switch Msg.MsgType {
 
+			// 	case network.NewOrder:
+			// 		handleNewOrder(elevatorMap, &Msg.Elevator, &thisElevator)
+			// 		toFSM_ch <- thisElevator
 
-		// case Msg := <-networkUpdateRx_ch:
+			// 	case network.OrderCompleted:
+			// 		handleOrderCompleted(elevatorMap, &Msg.Elevator, &thisElevator)
+			// 		toFSM_ch <- thisElevator
 
-		// 	switch Msg.MsgType {
+			// 	case network.StateUpdate:
+			// 		// Midlertidig løsning for packetloss ved slukking av lys, dette kan være kilde til bus, men funker fett nå (merk at vi alltid setter order counter til å være det vi får inn)
+			// 		if Msg.Elevator != elevatorMap[Msg.Elevator.Id] {
+			// 			handleOrderCompleted(elevatorMap, &Msg.Elevator, &thisElevator)
+			// 			toFSM_ch <- thisElevator
+			// 		}
+			// 		elevatorMap[Msg.Elevator.Id] = Msg.Elevator
 
-		// 	case network.NewOrder:
-		// 		handleNewOrder(elevatorMap, &Msg.Elevator, &thisElevator)
-		// 		toFSM_ch <- thisElevator
+			// 	case network.PeriodicMsg:
+			// 		SyncronizeAll(thisElevator, elevatorMap, Msg.Elevator, button_ch)
 
-		// 	case network.OrderCompleted:
-		// 		handleOrderCompleted(elevatorMap, &Msg.Elevator, &thisElevator)
-		// 		toFSM_ch <- thisElevator
+			// 	case network.ObstructedMsg:
 
-		// 	case network.StateUpdate:
-		// 		// Midlertidig løsning for packetloss ved slukking av lys, dette kan være kilde til bus, men funker fett nå (merk at vi alltid setter order counter til å være det vi får inn)
-		// 		if Msg.Elevator != elevatorMap[Msg.Elevator.Id] {
-		// 			handleOrderCompleted(elevatorMap, &Msg.Elevator, &thisElevator)
-		// 			toFSM_ch <- thisElevator
-		// 		}
-		// 		elevatorMap[Msg.Elevator.Id] = Msg.Elevator
+			// 		handleNewOrder(elevatorMap, &Msg.Elevator, &thisElevator)
 
-		// 	case network.PeriodicMsg:
-		// 		SyncronizeAll(thisElevator, elevatorMap, Msg.Elevator, button_ch)
+			// 		toFSM_ch <- thisElevator
+			// 	}
 
-		// 	case network.ObstructedMsg:
+			// case <-periodicUpdate_ch:
+			// 	msg := network.Msg{
+			// 		MsgType:  network.PeriodicMsg,
+			// 		Elevator: thisElevator,
+			// 	}
+			// 	networkUpdateTx_ch <- msg
 
-		// 		handleNewOrder(elevatorMap, &Msg.Elevator, &thisElevator)
-
-		// 		toFSM_ch <- thisElevator
-		// 	}
-
-		// case <-periodicUpdate_ch:
-		// 	msg := network.Msg{
-		// 		MsgType:  network.PeriodicMsg,
-		// 		Elevator: thisElevator,
-		// 	}
-		// 	networkUpdateTx_ch <- msg
-
-		// case peerUpdate := <-peerUpdate_ch:
-		// 	if len(peerUpdate.Lost) != 0 {
-		// 		handlePeerupdate(peerUpdate, &thisElevator, &elevatorMap, &hallRequestsMap)
-		// 		hallRequestsMap := hallrequestassigner.AssignHallRequests(elevatorMap)
-		// 		setLightMatrix(hallRequestsMap, &thisElevator)
-		// 		thisElevator.Requests = elevatorMap[thisElevator.Id].Requests
-		// 		toFSM_ch <- thisElevator
-		// 	}
+			// case peerUpdate := <-peerUpdate_ch:
+			// 	if len(peerUpdate.Lost) != 0 {
+			// 		handlePeerupdate(peerUpdate, &thisElevator, &elevatorMap, &hallRequestsMap)
+			// 		hallRequestsMap := hallrequestassigner.AssignHallRequests(elevatorMap)
+			// 		setLightMatrix(hallRequestsMap, &thisElevator)
+			// 		thisElevator.Requests = elevatorMap[thisElevator.Id].Requests
+			// 		toFSM_ch <- thisElevator
+			// 	}
 		}
 	}
 }
@@ -233,19 +237,12 @@ func handlePeerupdate(peerUpdate network.PeerUpdate, thisElevator *ElevatorInfo,
 }
 
 func evaluateRequests(elevatorMap map[string]ElevatorInfo, e *ElevatorInfo) {
-	fmt.Printf("one: %v\n", len(elevatorMap))
 	elevatorMap[e.Id] = *e
-	fmt.Printf("two: %v\n", len(elevatorMap))
 	assignerList := createAssignerInput(elevatorMap)
-	fmt.Printf("three: %v\n", len(elevatorMap))
 	hallRequestsMap := assigner.AssignHallRequests(assignerList)
-	fmt.Printf("four: %v\n", len(elevatorMap))
 	setElevatorMap(hallRequestsMap, &elevatorMap)
-	fmt.Printf("five: %v\n", len(hallRequestsMap))
 	e.Requests = elevatorMap[e.Id].Requests
-	fmt.Printf("six: %v\n", len(hallRequestsMap))
 	setLightMatrix(hallRequestsMap, e)
-	fmt.Printf("seven: %v\n", len(hallRequestsMap))
 }
 
 // func handleNewOrder(elevatorMap map[string]ElevatorInfo, recievedElevator *ElevatorInfo, thisElevator ElevatorInfo) {
@@ -309,14 +306,13 @@ func setLightMatrix(newAssignmentsMap map[string][4][2]bool, e *ElevatorInfo) {
 	}
 }
 
-
 func createAssignerInput(elevatorMap map[string]ElevatorInfo) []assigner.AssignerInput {
 	assignerList := make([]assigner.AssignerInput, 0, len(elevatorMap))
 	for id, value := range elevatorMap {
-		a := assigner.AssignerInput {
-			Id: 		id,
-			Requests: 	value.Requests,
-			State: 		value.State,
+		a := assigner.AssignerInput{
+			Id:       id,
+			Requests: value.Requests,
+			State:    value.State,
 		}
 		fmt.Printf("value: %v \n", value)
 
@@ -324,51 +320,51 @@ func createAssignerInput(elevatorMap map[string]ElevatorInfo) []assigner.Assigne
 		assignerList = append(assignerList, a)
 	}
 	return assignerList
-} 
+}
 
-		// 	msg := network.Msg{
-		// 		MsgType:  network.PeriodicMsg,
-		// 		Elevator: thisElevator,
-		// 	}
-// type AssingerInput struct {
-// 	Id					string
-// 	Requests            [elevator.N_FLOORS][elevator.N_BUTTONS]bool
-// 	State 				elevator.State
-// }
-// func saveInfoToFile(e ElevatorInfo) error {
-// 	requests := e.Requests
-// 	filename := e.Id
+/*
+ 	msg := network.Msg{
+ 		MsgType:  network.PeriodicMsg,
+ 		Elevator: thisElevator,
+ 	}
+ type AssingerInput struct {
+ 	Id					string
+ 	Requests            [elevator.N_FLOORS][elevator.N_BUTTONS]bool
+ 	State 				elevator.State
+ }*/
 
-// 	file, err := os.Create(filename)
-// 	if err != nil {
-// 		fmt.Printf("Failed to open file: %v", err)
-// 	}
+func saveInfoToFile(e ElevatorInfo) error {
+	requests := e.Requests
+	fmt.Printf("The name of the file is: %v \n \n", e.Id)
+	file, err := os.OpenFile(e.Id, os.O_WRONLY|os.O_CREATE, 0644)
+	if err != nil {
+		fmt.Printf("Failed to open file for writing: %v\n", err)
+	}
+	defer file.Close()
 
-// 	defer file.Close()
+	writer := csv.NewWriter(file)
 
-// 	writer := csv.NewWriter(file)
+	var records [][]string
+	for _, row := range requests {
+		cabReq := row[2]
+		records = append(records, []string{boolToString(cabReq)})
+	}
 
-// 	var records [][]string
-// 	for _, row := range requests {
-// 		cabReq := row[2]
-// 		records = append(records, []string{boolToString(cabReq)})
-// 	}
+	records = append(records, []string{"OCC:" + strconv.Itoa(e.OrderClearedCounter)})
+	records = append(records, []string{"OC:" + strconv.Itoa(e.OrderCounter)})
+	records = append(records, []string{"BH:" + strconv.Itoa(int(e.State.Behaviour))})
+	records = append(records, []string{"DIR:" + strconv.Itoa(int(e.State.Dirn))})
 
-// 	records = append(records, []string{"OCC:" + strconv.Itoa(e.OrderClearedCounter)})
-// 	records = append(records, []string{"OC:" + strconv.Itoa(e.OrderCounter)})
-// 	records = append(records, []string{"BH:" + strconv.Itoa(int(e.Behaviour))})
-// 	records = append(records, []string{"DIR:" + strconv.Itoa(int(e.Dirn))})
+	for _, record := range records {
+		if err := writer.Write(record); err != nil {
+			return fmt.Errorf("failed to write to CSV: %v", err)
+		}
+	}
 
-// 	for _, record := range records {
-// 		if err := writer.Write(record); err != nil {
-// 			return fmt.Errorf("failed to write to CSV: %v", err)
-// 		}
-// 	}
+	writer.Flush()
+	return nil
 
-// 	writer.Flush()
-// 	return nil
-
-// }
+}
 
 func boolToString(value bool) string {
 
@@ -409,4 +405,14 @@ func SyncronizeAll(thisElevator ElevatorInfo, elevatorMap map[string]ElevatorInf
 			}
 		}
 	}
+}
+
+func inheritedRequests(thisElevator ElevatorInfo) []elevator.ButtonEvent {
+	var BTNevents []elevator.ButtonEvent
+	for floor := 0; floor < 4; floor++ {
+		if thisElevator.Requests[floor][elevator.BT_Cab] {
+			BTNevents = append(BTNevents, elevator.ButtonEvent{floor, elevator.BT_Cab})
+		}
+	}
+	return BTNevents
 }
