@@ -29,14 +29,17 @@ func Diagnostics(updateFromFSM_ch chan elevator.Elevator, obstructionDiagnose_ch
 				}
 				diagnose := selfDiagnose(currentState, timeInSameStateWhileOrders)
 								
-				switch diagnose {
+				switch diagnose{
 				
 					case Healthy:
 						
 					case Obstructed:
-						obstructionDiagnose_ch <- true
+						if !currentState.State.Obstructed {
+							obstructionDiagnose_ch <- true
+						}
 						
 					case Reinitialize:
+						//Reinit fra Ole!
 				}
 				prevState = currentState
 			}

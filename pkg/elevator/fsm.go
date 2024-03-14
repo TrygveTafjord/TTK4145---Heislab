@@ -145,7 +145,6 @@ func fsmNewRequests(e *Elevator, timer_ch chan bool) {
 
 func setAllLights(e *Elevator) {
 	for floor := 0; floor < N_FLOORS; floor++ {
-		e.Lights[floor][BT_Cab] = e.Requests[floor][BT_Cab]
 		for btn := 0; btn < N_BUTTONS; btn++ {
 			SetButtonLamp(ButtonType(btn), floor, e.Lights[floor][btn])
 		}

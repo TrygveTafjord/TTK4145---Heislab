@@ -62,6 +62,7 @@ func Infobank(
 			newRequestToNetwork_ch <- msg
 
 		case obstructed := <- obstructionFromFSM_ch:
+			fmt.Printf("Infobank recieved obstructed from FSM!, with the value: %v\n", obstructed)
 			fmt.Printf("Infobank recieved obstructed from FSM!\n")
 			thisElevator.State.Obstructed = obstructed
 			evaluateRequests(elevatorMap, &thisElevator)
@@ -122,6 +123,7 @@ func Infobank(
 			elevatorMap[msg.Id] = updatedElev
 		
 		case msg := <- requestClearedFromNetwork_ch:
+			fmt.Printf("recieved cleared request \n")
 
 			updatedElev := elevatorMap[msg.Id]
 			for _, requests := range msg.ClearedRequests {
@@ -132,8 +134,10 @@ func Infobank(
 			lightsUpdateToFSM_ch <- thisElevator.Lights
 		
 		case msg := <- obstructedFromNetwork_ch:
+			fmt.Printf("recieved obstructed in infobank from the network! \n")
 			updatedElev := elevatorMap[msg.Id]
 			updatedElev.State.Obstructed = msg.Obstructed 
+			fmt.Printf("Recieved obstruction value: %v \n", msg.Obstructed)
 			elevatorMap[msg.Id] = updatedElev
 
 			assignerList := createAssignerInput(elevatorMap)
@@ -250,8 +254,8 @@ func setLightMatrix(newAssignmentsMap map[string][4][2]bool, e *ElevatorInfo) {
 		for i := 0; i < elevator.N_FLOORS; i++ {
 			for j := 0; j < elevator.N_BUTTONS-1; j++ {
 				e.Lights[i][j] = (e.Lights[i][j] || value[i][j])
-				e.Lights[i][elevator.BT_Cab] = e.Requests[i][elevator.BT_Cab]
 			}
+			e.Lights[i][elevator.BT_Cab] = e.Requests[i][elevator.BT_Cab]
 		}
 	}
 }
