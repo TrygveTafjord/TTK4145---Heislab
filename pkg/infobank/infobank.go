@@ -36,9 +36,7 @@ func Infobank(
 	go PeriodicUpdate(periodicUpdate_ch)
 
 	elevatorMap := make(map[string]ElevatorInfo)
-	//hallRequestsMap := make(map[string][4][2]bool)
 	thisElevator := <- init_ch
-	fmt.Printf("init id: %v \n", thisElevator.Id)
 
 	elevatorMap[thisElevator.Id] = thisElevator
 
@@ -141,23 +139,20 @@ func Infobank(
 				Id: thisElevator.Id, 
 				State: thisElevator.State,
 			}
-
 			stateUpdateToNetwork_ch <- msg 
+		
+		case peerUpdate := <-peerUpdate_ch:
+			if len(peerUpdate.Lost) == 0 {
+				break
+			}
+			handlePeerupdate(peerUpdate, &thisElevator, &elevatorMap)
+			
+			assignerList := createAssignerInput(elevatorMap)
+			hallRequestsMap := assigner.AssignHallRequests(assignerList)
+			thisElevator.Requests = elevatorMap[thisElevator.Id].Requests
 
-
-
-
-		// case Msg := <-networkUpdateRx_ch:
-
-		// 	switch Msg.MsgType {
-
-		// 	case network.NewOrder:
-		// 		handleNewOrder(elevatorMap, &Msg.Elevator, &thisElevator)
-		// 		toFSM_ch <- thisElevator
-
-		// 	case network.OrderCompleted:
-		// 		handleOrderCompleted(elevatorMap, &Msg.Elevator, &thisElevator)
-		// 		toFSM_ch <- thisElevator
+			setLightMatrix(hallRequestsMap, &thisElevator)
+			requestUpdateToFSM_ch <- thisElevator.Requests
 
 		// 	case network.StateUpdate:
 		// 		// Midlertidig løsning for packetloss ved slukking av lys, dette kan være kilde til bus, men funker fett nå (merk at vi alltid setter order counter til å være det vi får inn)
@@ -205,7 +200,6 @@ func setElevatorMap(newAssignmentsMap map[string][4][2]bool, elevatorMap *map[st
 				tempElev.Requests[i][j] = requests[i][j]
 			}
 		}
-		fmt.Printf("id: %v \n", id)
 		(*elevatorMap)[id] = tempElev
 	}
 }
@@ -217,7 +211,7 @@ func PeriodicUpdate(periodicUpdate_ch chan bool) {
 	}
 }
 
-func handlePeerupdate(peerUpdate network.PeerUpdate, thisElevator *ElevatorInfo, elevatorMap *map[string]ElevatorInfo, newAssignmentsMap *map[string][4][2]bool) {
+func handlePeerupdate(peerUpdate network.PeerUpdate, thisElevator *ElevatorInfo, elevatorMap *map[string]ElevatorInfo) {
 
 	for i := 0; i < len(peerUpdate.Lost); i++ {
 		for j := 0; j < elevator.N_FLOORS; j++ {
@@ -226,42 +220,18 @@ func handlePeerupdate(peerUpdate network.PeerUpdate, thisElevator *ElevatorInfo,
 			}
 		}
 		delete(*elevatorMap, peerUpdate.Lost[i])
-		delete(*newAssignmentsMap, peerUpdate.Lost[i])
-		thisElevator.OrderCounter++
 	}
 	(*elevatorMap)[thisElevator.Id] = *thisElevator
 }
 
 func evaluateRequests(elevatorMap map[string]ElevatorInfo, e *ElevatorInfo) {
-	fmt.Printf("one: %v\n", len(elevatorMap))
 	elevatorMap[e.Id] = *e
-	fmt.Printf("two: %v\n", len(elevatorMap))
 	assignerList := createAssignerInput(elevatorMap)
-	fmt.Printf("three: %v\n", len(elevatorMap))
 	hallRequestsMap := assigner.AssignHallRequests(assignerList)
-	fmt.Printf("four: %v\n", len(elevatorMap))
 	setElevatorMap(hallRequestsMap, &elevatorMap)
-	fmt.Printf("five: %v\n", len(hallRequestsMap))
 	e.Requests = elevatorMap[e.Id].Requests
-	fmt.Printf("six: %v\n", len(hallRequestsMap))
 	setLightMatrix(hallRequestsMap, e)
-	fmt.Printf("seven: %v\n", len(hallRequestsMap))
 }
-
-// func handleNewOrder(elevatorMap map[string]ElevatorInfo, recievedElevator *ElevatorInfo, thisElevator ElevatorInfo) {
-// 	thisElevator.OrderCounter = recievedElevator.OrderCounter
-
-// 	elevatorMap[recievedElevator.Id] = *recievedElevator
-
-// 	assignerList := createAssignerInput(elevatorMap)
-// 	hallRequestsMap := assigner.AssignHallRequests(assignerList)
-
-// 	setElevatorMap(hallRequestsMap, &elevatorMap)
-// 	thisElevator.Requests = elevatorMap[thisElevator.Id].Requests
-// 	setLightMatrix(hallRequestsMap, &thisElevator)
-
-// 	thisElevator.Requests = elevatorMap[thisElevator.Id].Requests
-// }
 
 func handleOrderCompleted(elevatorMap map[string]ElevatorInfo, recievedElevator *ElevatorInfo, thisElevator *ElevatorInfo) {
 	elevatorMap[recievedElevator.Id] = *recievedElevator
@@ -318,9 +288,6 @@ func createAssignerInput(elevatorMap map[string]ElevatorInfo) []assigner.Assigne
 			Requests: 	value.Requests,
 			State: 		value.State,
 		}
-		fmt.Printf("value: %v \n", value)
-
-		fmt.Printf("value.id: %v \n", value.Id)
 		assignerList = append(assignerList, a)
 	}
 	return assignerList
