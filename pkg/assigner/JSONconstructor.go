@@ -11,7 +11,6 @@ import (
 
 func AssignHallRequests(assignerList []AssignerInput) map[string][4][2]bool{
 	if len(assignerList) == 1 {
-		fmt.Printf("Assigning single\n")
 		return AssignHallRequestsSingle(assignerList)
 	}else{
 		return AssignHallRequestsMultiple(assignerList)
@@ -42,7 +41,6 @@ func AssignHallRequestsMultiple(assignerList []AssignerInput) map[string][4][2]b
 	for _,Id := range obstructedElevators{
 		returnMap[Id] = emptyRequests
 	}
-	fmt.Printf("returnmap: %v\n", returnMap)
 
 	return returnMap
 }
@@ -97,20 +95,6 @@ func CreateJSON(elevators ...AssignerInput) []byte {
 		"states":       auxJSONMap,
 	}
 
-	/*fmt.Println("Hall Requests Matrix from JSON maker:")
-	for i, floorRequests := range hallRequests {
-		for j, request := range floorRequests {
-			if j == 0 {
-				fmt.Printf("%v, [", i)
-			}
-			fmt.Printf("%t", request)
-			if j < len(floorRequests)-1 {
-				fmt.Print(", ")
-			} else {
-				fmt.Println("]")
-			}
-		}
-	}*/
 
 	JSON, err := json.MarshalIndent(masterJSONMap, "", "    ") // "" as prefix and "    " (4 spaces) as indent
 	if err != nil {

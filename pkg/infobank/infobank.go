@@ -141,26 +141,40 @@ func Infobank(
 			}
 			elevatorMap[msg.Id] = updatedElev
 			lightsUpdateToFSM_ch <- thisElevator.Lights
+		
+		case msg := <- obstructedFromNetwork_ch:
+			fmt.Printf("recieved obstructed in infobank from the network! \n")
+			updatedElev := elevatorMap[msg.Id]
+			updatedElev.State.Obstructed = msg.Obstructed 
+			fmt.Printf("Recieved obstruction value: %v \n", msg.Obstructed)
+			elevatorMap[msg.Id] = updatedElev
 
-		case <-periodicUpdate_ch:
-			msg := network.StateUpdate{
-				Id:    thisElevator.Id,
+			assignerList := createAssignerInput(elevatorMap)
+			hallRequestsMap := assigner.AssignHallRequests(assignerList)
+			setElevatorMap(hallRequestsMap, &elevatorMap)
+			thisElevator.Requests = elevatorMap[thisElevator.Id].Requests
+
+			requestUpdateToFSM_ch <- thisElevator.Requests
+		
+		case <- periodicUpdate_ch:
+			msg := network.StateUpdate { 
+				Id: thisElevator.Id, 
 				State: thisElevator.State,
 			}
+			stateUpdateToNetwork_ch <- msg 
+		
+		case peerUpdate := <-peerUpdate_ch:
+			if len(peerUpdate.Lost) == 0 {
+				break
+			}
+			handlePeerupdate(peerUpdate, &thisElevator, &elevatorMap)
+			
+			assignerList := createAssignerInput(elevatorMap)
+			hallRequestsMap := assigner.AssignHallRequests(assignerList)
+			thisElevator.Requests = elevatorMap[thisElevator.Id].Requests
 
-			stateUpdateToNetwork_ch <- msg
-
-		// case Msg := <-networkUpdateRx_ch:
-
-		// 	switch Msg.MsgType {
-
-		// 	case network.NewOrder:
-		// 		handleNewOrder(elevatorMap, &Msg.Elevator, &thisElevator)
-		// 		toFSM_ch <- thisElevator
-
-		// 	case network.OrderCompleted:
-		// 		handleOrderCompleted(elevatorMap, &Msg.Elevator, &thisElevator)
-		// 		toFSM_ch <- thisElevator
+			setLightMatrix(hallRequestsMap, &thisElevator)
+			requestUpdateToFSM_ch <- thisElevator.Requests
 
 		// 	case network.StateUpdate:
 		// 		// Midlertidig løsning for packetloss ved slukking av lys, dette kan være kilde til bus, men funker fett nå (merk at vi alltid setter order counter til å være det vi får inn)
@@ -210,7 +224,6 @@ func setElevatorMap(newAssignmentsMap map[string][4][2]bool, elevatorMap *map[st
 				tempElev.Requests[i][j] = requests[i][j]
 			}
 		}
-		fmt.Printf("id: %v \n", id)
 		(*elevatorMap)[id] = tempElev
 	}
 }
@@ -222,6 +235,7 @@ func PeriodicUpdate(periodicUpdate_ch chan bool) {
 	}
 }
 
+func handlePeerupdate(peerUpdate network.PeerUpdate, thisElevator *ElevatorInfo, elevatorMap *map[string]ElevatorInfo) {
 func handlePeerupdate(peerUpdate network.PeerUpdate, thisElevator *ElevatorInfo, elevatorMap *map[string]ElevatorInfo) {
 
 	for i := 0; i < len(peerUpdate.Lost); i++ {
@@ -299,8 +313,8 @@ func setLightMatrix(newAssignmentsMap map[string][4][2]bool, e *ElevatorInfo) {
 		for i := 0; i < elevator.N_FLOORS; i++ {
 			for j := 0; j < elevator.N_BUTTONS-1; j++ {
 				e.Lights[i][j] = (e.Lights[i][j] || value[i][j])
-				e.Lights[i][elevator.BT_Cab] = e.Requests[i][elevator.BT_Cab]
 			}
+			e.Lights[i][elevator.BT_Cab] = e.Requests[i][elevator.BT_Cab]
 		}
 	}
 }
