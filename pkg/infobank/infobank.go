@@ -18,7 +18,9 @@ func Infobank(
 	lightsUpdateToFSM_ch 			chan [elevator.N_FLOORS][elevator.N_BUTTONS]bool,
 	obstructionFromFSM_ch 			chan bool,
 	newRequestToNetwork_ch 			chan network.NewRequest,
-	newRequestFromNetwork_ch 		chan network.NewRequest,
+	newRequestFromNetwork_ch 		chan network.NewRequest,	
+	sendRequestConfirmation_ch		chan network.Confirm,
+	recieveRequestConfirmation_ch   chan network.Confirm,
 	obstructedToNetwork_ch 			chan network.Obstructed,
 	obstructedFromNetwork_ch 		chan network.Obstructed,
 	stateUpdateToNetwork_ch 		chan network.StateUpdate,
@@ -43,6 +45,10 @@ func Infobank(
 	for {
 		select {
 		case buttonEvent := <-button_ch:
+			if !confirmNewAssignment(newRequestToNetwork_ch, recieveRequestConfirmation_ch, buttonEvent, len(elevatorMap), thisElevator.Id) {
+				fmt.Print("Not Confirmed! \n")
+				break
+			}
 
 			thisElevator.Requests[buttonEvent.Floor][buttonEvent.Button] = true
 			elevatorMap[thisElevator.Id] = thisElevator
@@ -54,17 +60,9 @@ func Infobank(
 			lightsUpdateToFSM_ch <- thisElevator.Lights
 			requestUpdateToFSM_ch <- thisElevator.Requests
 
-			msg := network.NewRequest{
-				Id:		 thisElevator.Id,
-				Request: buttonEvent,
-			}
-
-			newRequestToNetwork_ch <- msg
-
 		case obstructed := <- obstructionFromFSM_ch:
 			thisElevator.State.Obstructed = obstructed
 			evaluateRequests(elevatorMap, &thisElevator)
-				//kan implementere en cycle her, 
 			msg := network.Obstructed { 
 				Id: thisElevator.Id, 
 				Obstructed: obstructed,
@@ -100,6 +98,14 @@ func Infobank(
 			requestClearedToNetwork_ch <- msg
 			
 		case msg := <-newRequestFromNetwork_ch:
+			//Bryte opp?
+			//msg.PassWrd != id + fmt.Sprint(buttonEvent.Button) + fmt.Sprint(buttonEvent.Floor)
+			confirmation := network.Confirm {
+				Id:			thisElevator.Id,
+				PassWrd:    msg.Id + fmt.Sprint(msg.Request.Button) + fmt.Sprint(msg.Request.Floor),
+			}
+			sendRequestConfirmation_ch <- confirmation 
+
 			updatedElev := elevatorMap[msg.Id]
 			updatedElev.Requests[msg.Request.Floor][msg.Request.Button] = true
 			elevatorMap[msg.Id] = updatedElev
