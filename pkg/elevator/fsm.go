@@ -10,22 +10,23 @@ import (
 	"project.com/pkg/timer"
 )
 
-func FSM(requestUpdate_ch chan [N_FLOORS][N_BUTTONS]bool, clearRequestToInfobank_ch chan []ButtonEvent, stateToInfobank_ch chan State, lightUpdate_ch chan [N_FLOORS][N_BUTTONS]bool, elevatorInit_ch chan Elevator) {
+func FSM(elevatorInit_ch chan Elevator,
+	    requestUpdate_ch chan [N_FLOORS][N_BUTTONS]bool, 
+		clearRequestToInfobank_ch chan []ButtonEvent, 
+		stateToInfobank_ch chan State, 
+		lightUpdate_ch chan [N_FLOORS][N_BUTTONS]bool, 
+		updateDiagnostics_ch chan Elevator,
+		setObstructedState_ch chan bool) {
 
 	floorSensor_ch := make(chan int)
 	obstruction_ch := make(chan bool)
 	timer_ch := make(chan bool)
-	updateDiagnostics_ch := make(chan Elevator)
-	obstructedState_ch := make(chan bool)
 
 	go PollFloorSensor(floorSensor_ch)
 	go PollObstructionSwitch(obstruction_ch)
-	go diagnostics.Diagnostics(updateDiagnostics_ch, obstructedState_ch)
 
 	elevator := new(Elevator)
 	*elevator = <-elevatorInit_ch
-	//prevelevator := *elevator
-	//obstruction := GetObstruction()
 
 	for {
 		select {
@@ -36,7 +37,7 @@ func FSM(requestUpdate_ch chan [N_FLOORS][N_BUTTONS]bool, clearRequestToInfobank
 				clearRequestToInfobank_ch <- getClearedRequests(requests, elevator.Requests)
 			}
 			stateToInfobank_ch <- elevator.State
-			//inform diagnoze
+			updateDiagnostics_ch <- *elevator
 
 		case lights := <-lightUpdate_ch:
 			elevator.Lights = lights
@@ -47,20 +48,20 @@ func FSM(requestUpdate_ch chan [N_FLOORS][N_BUTTONS]bool, clearRequestToInfobank
 			requestsBeforeNewFloor := elevator.Requests
 			fsmOnFloorArrival(elevator, newFloor, timer_ch)
 			stateToInfobank_ch <- elevator.State
-			//inform diagnoze
 			if requestsBeforeNewFloor != elevator.Requests{
 				clearRequestToInfobank_ch <- getClearedRequests(requestsBeforeNewFloor, elevator.Requests)
 			}
+			updateDiagnostics_ch <- *elevator
 		
 		case <-timer_ch:
 			HandleDeparture(elevator, timer_ch)
 			stateToInfobank_ch <- elevator.State
+			updateDiagnostics_ch <- *elevator
 
 		case obstruction := <-obstruction_ch:
 			if !obstruction && elevator.State.Behaviour == EB_DoorOpen {
 				go timer.Run_timer(3, timer_ch)
 			}
-			//inform diagnoze of obstruction
 		}
 	}
 }

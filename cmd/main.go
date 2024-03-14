@@ -62,7 +62,7 @@ func primaryProcess(lastID string, udpSendAddr string) {
 
 	peerUpdate_ch := make(chan network.PeerUpdate, 50)
 
-	go elevator.FSM(requestUpdate_ch, clearRequest_ch, stateUpdate_ch, lightsUpdate_ch, initFSM_ch)
+	go elevator.FSM(initFSM_ch, requestUpdate_ch, clearRequest_ch, stateUpdate_ch, lightsUpdate_ch, updateDiagnostics_ch, setObstructedState_ch)
 	go infobank.Infobank(initInfobank_ch, requestUpdate_ch, clearRequest_ch, stateUpdate_ch, lightsUpdate_ch, obstruction_ch, requestInfobankToNetwork_ch, requestNetworkToInfobank_ch, obstructedInfobankToNetwork_ch, obstructedNetworkToInfobank_ch, stateInfobankToNetwork_ch, stateNetworkToInfobank_ch, clearedInfobankToNetwork_ch, clearedNetworkToInfobank_ch, peerUpdate_ch)
 	go network.Network(initNetwork, requestNetworkToInfobank_ch, requestInfobankToNetwork_ch, obstructedNetworkToInfobank_ch, obstructedInfobankToNetwork_ch, stateNetworkToInfobank_ch, stateInfobankToNetwork_ch, clearedNetworkToInfobank_ch, clearedInfobankToNetwork_ch, peerUpdate_ch)
 	go diagnostics.Diagnostics(updateDiagnostics_ch, setObstructedState_ch)
