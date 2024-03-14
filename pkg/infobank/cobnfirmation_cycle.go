@@ -1,114 +1,64 @@
 package infobank
 
-// import (
-// 	"fmt"
+import (
+	"fmt"
+	"time"
 
-// 	"project.com/pkg/elevator"
-// 	"project.com/pkg/network"
-// 	"project.com/pkg/timer"
-// )
+	"project.com/pkg/elevator"
+	"project.com/pkg/network"
+	"project.com/pkg/timer"
+)
 
-// func confirmNewAssignmentFSM(
-// 	networkUpdateTx_ch chan network.Msg,
-// 	networkUpdateRx_ch chan network.Msg,
-// 	btn elevator.ButtonEvent,
-// 	orderConfirmed_ch chan bool,
-// 	elevatorMap map[string]elevator.Elevator,
-// 	thisElevator elevator.Elevator,
-// ) {
+func confirmNewAssignment(
+	newRequestToNetwork_ch chan network.NewRequest,
+	confirmRequest_ch chan network.Confirm,
+	buttonEvent elevator.ButtonEvent,
+	orderConfirmed_ch chan bool,
+	numElevators int,
+	id string,
+) bool {
 
-// 	timeOut_ch := make(chan bool)
+	timeOut_ch := make(chan bool)
 
-// 	const CONFIRM_TIME float64 = 0.1
-// 	confirmedNodes := make(map[string]elevator.Elevator)
-// 	var isConfirmed bool = false
+	const CONFIRM_TIME float64 = 0.1
+	confirmedNodes := make(map[string]bool)
+	
+	msg := network.NewRequest{
+		Id:		 id,
+		Request: buttonEvent,
+	}
 
-// 	thisElevator.Requests[btn.Floor][btn.Button] = true
-// 	thisElevator.OrderCounter++
+	newRequestToNetwork_ch <- msg
 
-// 	msg := network.Msg{
-// 		MsgType:  network.NewOrder,
-// 		Elevator: thisElevator,
-// 	}
+	go timer.Run_timer(CONFIRM_TIME, timeOut_ch)
+	ticker := time.NewTicker(10 * time.Millisecond)
 
-// 	networkUpdateTx_ch <- msg
+	for {
+		select {
 
-// 	go timer.Run_timer(CONFIRM_TIME, timeOut_ch)
+		case msg := <-confirmRequest_ch:
+		//Kan man bruke processID for passord?
+			if msg.PassWrd != id + fmt.Sprint(buttonEvent.Button) + fmt.Sprint(buttonEvent.Floor) {
+				fmt.Printf("Recieved a non-confirming message!\n")
+				break
+			}
 
-// 	for {
-// 		select {
+			confirmedNodes[msg.Id] = true
 
-// 		case Msg := <-networkUpdateRx_ch:
+			if len(confirmedNodes) == numElevators-1{
+				return true
+			}
 
-// 			if Msg.MsgType != network.ConfirmedOrder {
-// 				fmt.Printf("Recieved a non-confirming message!\n")
-// 				break
-// 			}
+		case <- ticker.C:
+			newRequestToNetwork_ch <- msg
 
-// 			confirmedNodes[Msg.Elevator.Id] = Msg.Elevator
-// 			elevatorMap[Msg.Elevator.Id] = Msg.Elevator
+		case <- timeOut_ch:
+			orderConfirmed_ch <- false
+			return false
 
-// 			if len(confirmedNodes) == len(elevatorMap)-1{
-// 				isConfirmed = true
-// 			}
+	}
+	}
+}
 
-// 		case <- timeOut_ch:
-// 			orderConfirmed_ch <- isConfirmed
-// 			return
-
-// 	}
-// 	}
-// }
-
-// func confirmFSM(
-// 		networkUpdateTx_ch chan network.Msg,
-// 		networkUpdateRx_ch chan network.Msg,
-// 		orderConfirmed_ch chan bool,
-// 		elevatorMap map[string]elevator.Elevator,
-// 		thisElevator elevator.Elevator,
-// 		elevStatusUpdate_ch chan elevator.Elevator,
-// 	) {
-
-// 		timeOut_ch := make(chan bool)
-
-// 		const CONFIRM_TIME float64 = 0.1
-// 		confirmedNodes := make(map[string]elevator.Elevator)
-// 		var isConfirmed bool = false
-
-// 		msg := network.Msg{
-// 			MsgType:  network.ConfirmedOrder,
-// 			Elevator: thisElevator,
-// 		}
-
-// 		go timer.Run_timer(CONFIRM_TIME, timeOut_ch)
-
-// 		for {
-// 			select {
-
-// 			case recievedMsg := <-networkUpdateRx_ch:
-// 				if recievedMsg.MsgType == network.OrderCompleted {
-// 					handleOrderCompleted(elevatorMap, &msg.Elevator, &thisElevator)
-// 					elevStatusUpdate_ch <- thisElevator
-// 				}
-
-// 				if recievedMsg.MsgType != network.ConfirmedOrder && recievedMsg.MsgType != network.NewOrder {
-// 					break
-// 				}
-// 				confirmedNodes[recievedMsg.Elevator.Id] = recievedMsg.Elevator
-// 				elevatorMap[recievedMsg.Elevator.Id] = recievedMsg.Elevator
-
-// 				if len(confirmedNodes) == len(elevatorMap)-1{
-// 					isConfirmed = true
-// 				}
-// 				if recievedMsg.MsgType == network.NewOrder{
-// 					networkUpdateTx_ch <- msg
-// 				}
-
-// 			case <- timeOut_ch:
-// 				orderConfirmed_ch <- isConfirmed
-// 				return
-// 				}
-// 			}
-// 		}
 
 
