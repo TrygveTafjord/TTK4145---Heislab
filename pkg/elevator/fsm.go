@@ -15,17 +15,17 @@ func FSM(requestUpdate_ch chan [N_FLOORS][N_BUTTONS]bool, clearRequestToInfobank
 	floorSensor_ch := make(chan int)
 	obstruction_ch := make(chan bool)
 	timer_ch := make(chan bool)
-	selfCheck_ch := make(chan bool)
+	updateDiagnostics_ch := make(chan Elevator)
+	obstructedState_ch := make(chan bool)
 
 	go PollFloorSensor(floorSensor_ch)
 	go PollObstructionSwitch(obstruction_ch)
-	go PeriodicCheck(selfCheck_ch)
+	go diagnostics.Diagnostics(updateDiagnostics_ch, obstructedState_ch)
 
 	elevator := new(Elevator)
 	*elevator = <-elevatorInit_ch
 	//prevelevator := *elevator
-	obstruction := GetObstruction()
-	//standstill := 0
+	//obstruction := GetObstruction()
 
 	for {
 		select {
@@ -36,6 +36,7 @@ func FSM(requestUpdate_ch chan [N_FLOORS][N_BUTTONS]bool, clearRequestToInfobank
 				clearRequestToInfobank_ch <- getClearedRequests(requests, elevator.Requests)
 			}
 			stateToInfobank_ch <- elevator.State
+			//inform diagnoze
 
 		case lights := <-lightUpdate_ch:
 			elevator.Lights = lights
@@ -46,25 +47,26 @@ func FSM(requestUpdate_ch chan [N_FLOORS][N_BUTTONS]bool, clearRequestToInfobank
 			requestsBeforeNewFloor := elevator.Requests
 			fsmOnFloorArrival(elevator, newFloor, timer_ch)
 			stateToInfobank_ch <- elevator.State
+			//inform diagnoze
 			if requestsBeforeNewFloor != elevator.Requests{
 				clearRequestToInfobank_ch <- getClearedRequests(requestsBeforeNewFloor, elevator.Requests)
 			}
-			
-
+		
 		case <-timer_ch:
-			HandleDeparture(elevator, timer_ch, obstruction)
+			HandleDeparture(elevator, timer_ch)
 			stateToInfobank_ch <- elevator.State
 
-		case obstruction = <-obstruction_ch:
+		case obstruction := <-obstruction_ch:
 			if !obstruction && elevator.State.Behaviour == EB_DoorOpen {
 				go timer.Run_timer(3, timer_ch)
 			}
+			//inform diagnoze of obstruction
 		}
 	}
 }
 
-func HandleDeparture(e *Elevator, timer_ch chan bool, obstruction bool) {
-	if obstruction && e.State.Behaviour == EB_DoorOpen {
+func HandleDeparture(e *Elevator, timer_ch chan bool) {
+	if GetObstruction() && e.State.Behaviour == EB_DoorOpen {
 		go timer.Run_timer(3, timer_ch)
 	} else {
 		e.State.Dirn, e.State.Behaviour = GetDirectionAndBehaviour(e)
@@ -128,17 +130,6 @@ func fsmNewRequests(e *Elevator, timer_ch chan bool) {
 	setAllLights(e)
 }
 
-func HandleStopButtonPressed(e *Elevator) {
-	switch e.State.Floor {
-	case -1:
-		SetMotorDirection(0)
-	default:
-		SetMotorDirection(0)
-		SetDoorOpenLamp(true)
-	}
-	e.State.Behaviour = EB_Stopped
-}
-
 func setAllLights(e *Elevator) {
 	for floor := 0; floor < N_FLOORS; floor++ {
 		e.Lights[floor][BT_Cab] = e.Requests[floor][BT_Cab]
@@ -155,54 +146,54 @@ func PeriodicCheck(selfCheck_ch chan bool) {
 	}
 }
 
-func Selfdiagnose(elevator *Elevator, prevElevator *Elevator, obstruction bool, standstill *int) Diagnose {
-	hasRequests := Check_request(*elevator)
+// func Selfdiagnose(elevator *Elevator, prevElevator *Elevator, obstruction bool, standstill *int) Diagnose {
+// 	hasRequests := Check_request(*elevator)
 
-	if hasRequests && elevator.State.Behaviour == prevElevator.State.Behaviour {
+// 	if hasRequests && elevator.State.Behaviour == prevElevator.State.Behaviour {
 
-		switch elevator.State.Behaviour {
-		case EB_Idle:
-			*prevElevator = *elevator
-			return Problem
+// 		switch elevator.State.Behaviour {
+// 		case EB_Idle:
+// 			*prevElevator = *elevator
+// 			return Problem
 
-		case EB_DoorOpen:
-			if elevator.State.Floor == prevElevator.State.Floor {
-				*standstill += 1
-			}
-		case EB_Moving:
-			if elevator.State.Floor == prevElevator.State.Floor {
-				*standstill += 1
-			}
-		}
-		*prevElevator = *elevator
+// 		case EB_DoorOpen:
+// 			if elevator.State.Floor == prevElevator.State.Floor {
+// 				*standstill += 1
+// 			}
+// 		case EB_Moving:
+// 			if elevator.State.Floor == prevElevator.State.Floor {
+// 				*standstill += 1
+// 			}
+// 		}
+// 		*prevElevator = *elevator
 
-		if *standstill > 10 && obstruction {
-			return Obstructed
-		} else if *standstill == 20 && !obstruction {
-			return Problem
-		}
+// 		if *standstill > 10 && obstruction {
+// 			return Obstructed
+// 		} else if *standstill == 20 && !obstruction {
+// 			return Problem
+// 		}
 
-	} else if obstruction {
-		*prevElevator = *elevator
-		return Unchanged
+// 	} else if obstruction {
+// 		*prevElevator = *elevator
+// 		return Unchanged
 
-	} else {
-		*standstill = 0
-		*prevElevator = *elevator
-	}
-	return Healthy
-}
+// 	} else {
+// 		*standstill = 0
+// 		*prevElevator = *elevator
+// 	}
+// 	return Healthy
+// }
 
-func Check_request(elevator Elevator) bool {
-	for i := 0; i < N_FLOORS; i++ {
-		for j := 0; j < N_BUTTONS; j++ {
-			if elevator.Requests[i][j] {
-				return true
-			}
-		}
-	}
-	return false
-}
+// func Check_request(elevator Elevator) bool {
+// 	for i := 0; i < N_FLOORS; i++ {
+// 		for j := 0; j < N_BUTTONS; j++ {
+// 			if elevator.Requests[i][j] {
+// 				return true
+// 			}
+// 		}
+// 	}
+// 	return false
+// }
 
 func getClearedRequests(oldRequests [N_FLOORS][N_BUTTONS]bool, newRequests [N_FLOORS][N_BUTTONS]bool) []ButtonEvent{
 	var clearedRequests []ButtonEvent

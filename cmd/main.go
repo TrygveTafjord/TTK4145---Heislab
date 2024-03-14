@@ -7,6 +7,7 @@ import (
 	"os/exec"
 	"time"
 
+	"project.com/pkg/diagnostics"
 	"project.com/pkg/elevator"
 	"project.com/pkg/infobank"
 	"project.com/pkg/initialize"
@@ -56,11 +57,16 @@ func primaryProcess(lastID string, udpSendAddr string) {
 	clearedInfobankToNetwork_ch 	:= make(chan network.RequestCleared, BUFFER_SIZE)
 	clearedNetworkToInfobank_ch  	:= make(chan network.RequestCleared, BUFFER_SIZE)
 
+	updateDiagnostics_ch  := make(chan elevator.Elevator)
+	setObstructedState_ch := make(chan bool)
+
 	peerUpdate_ch := make(chan network.PeerUpdate, 50)
 
 	go elevator.FSM(requestUpdate_ch, clearRequest_ch, stateUpdate_ch, lightsUpdate_ch, initFSM_ch)
 	go infobank.Infobank(initInfobank_ch, requestUpdate_ch, clearRequest_ch, stateUpdate_ch, lightsUpdate_ch, obstruction_ch, requestInfobankToNetwork_ch, requestNetworkToInfobank_ch, obstructedInfobankToNetwork_ch, obstructedNetworkToInfobank_ch, stateInfobankToNetwork_ch, stateNetworkToInfobank_ch, clearedInfobankToNetwork_ch, clearedNetworkToInfobank_ch, peerUpdate_ch)
 	go network.Network(initNetwork, requestNetworkToInfobank_ch, requestInfobankToNetwork_ch, obstructedNetworkToInfobank_ch, obstructedInfobankToNetwork_ch, stateNetworkToInfobank_ch, stateInfobankToNetwork_ch, clearedNetworkToInfobank_ch, clearedInfobankToNetwork_ch, peerUpdate_ch)
+	go diagnostics.Diagnostics(updateDiagnostics_ch, setObstructedState_ch)
+
 	ID, err := network.LocalIP()
 
 	initialize.ElevatorInit(initInfobank_ch, initFSM_ch, initNetwork, lastID, ID)

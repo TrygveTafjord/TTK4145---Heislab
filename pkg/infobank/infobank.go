@@ -1,7 +1,6 @@
 package infobank
 
 import (
-	"fmt"
 	"time"
 
 	"project.com/pkg/assigner"
@@ -233,40 +232,8 @@ func evaluateRequests(elevatorMap map[string]ElevatorInfo, e *ElevatorInfo) {
 	setLightMatrix(hallRequestsMap, e)
 }
 
-func handleOrderCompleted(elevatorMap map[string]ElevatorInfo, recievedElevator *ElevatorInfo, thisElevator *ElevatorInfo) {
-	elevatorMap[recievedElevator.Id] = *recievedElevator
 
-	for i := 0; i < elevator.N_FLOORS; i++ {
-		for j := 0; j < elevator.N_BUTTONS-1; j++ {
-			thisElevator.Lights[i][j] = thisElevator.Lights[i][j] && recievedElevator.Lights[i][j]
-		}
-	}
 
-	thisElevator.OrderClearedCounter = recievedElevator.OrderClearedCounter
-
-	elevatorMap[thisElevator.Id] = *thisElevator
-
-}
-
-func storeFsmUpdate(elevatorMap map[string]ElevatorInfo, oldState *ElevatorInfo, newState *ElevatorInfo) {
-	if newState.Id != oldState.Id {
-		fmt.Printf("error: trying to assign values to non similar Id's \n")
-		return
-	}
-
-	elevatorMap[oldState.Id] = *newState
-	*oldState = *newState
-}
-
-// func calculateMsgType(newState ElevatorInfo, oldState ElevatorInfo) network.MsgType {
-// 	if newState.State.Obstructed != oldState.State.Obstructed {
-// 		return network.ObstructedMsg
-// 	}
-// 	if newState.OrderClearedCounter > oldState.OrderClearedCounter {
-// 		return network.OrderCompleted
-// 	}
-// 	return network.StateUpdate
-// }
 
 func setLightMatrix(newAssignmentsMap map[string][4][2]bool, e *ElevatorInfo) {
 	for _, value := range newAssignmentsMap {
@@ -293,15 +260,7 @@ func createAssignerInput(elevatorMap map[string]ElevatorInfo) []assigner.Assigne
 	return assignerList
 } 
 
-		// 	msg := network.Msg{
-		// 		MsgType:  network.PeriodicMsg,
-		// 		Elevator: thisElevator,
-		// 	}
-// type AssingerInput struct {
-// 	Id					string
-// 	Requests            [elevator.N_FLOORS][elevator.N_BUTTONS]bool
-// 	State 				elevator.State
-// }
+
 // func saveInfoToFile(e ElevatorInfo) error {
 // 	requests := e.Requests
 // 	filename := e.Id
