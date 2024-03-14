@@ -119,6 +119,7 @@ func initDefaultObjects(ID string) (elevator.Elevator, infobank.ElevatorInfo) {
 }
 
 func initReplacementObjects(ID string) (elevator.Elevator, infobank.ElevatorInfo) {
+	fmt.Printf("\n \n \n ---------REINIT-------- \n \n \n ")
 	var cabCalls []bool
 	var direction int
 	var e elevator.Elevator
@@ -152,11 +153,11 @@ func initReplacementObjects(ID string) (elevator.Elevator, infobank.ElevatorInfo
 		for floor == -1 {
 			floor = elevator.GetFloor()
 			if floor != (-1) {
-				elevator.SetMotorDirection(elevator.MD_Stop)
 				break
 			}
 		}
 	}
+	elevator.SetMotorDirection(elevator.MD_Stop)
 	e.State.Floor, e_IB.State.Floor = floor, floor
 	e_IB.Id = ID
 	return e, e_IB

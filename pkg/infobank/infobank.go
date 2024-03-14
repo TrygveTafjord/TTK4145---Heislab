@@ -45,7 +45,6 @@ func Infobank(
 	for _, reqs := range inheritedRequests {
 		button_ch <- reqs
 	}
-	fmt.Printf("init id: %v \n", thisElevator.Id)
 
 	elevatorMap[thisElevator.Id] = thisElevator
 
@@ -64,6 +63,7 @@ func Infobank(
 			setLightMatrix(hallRequestsMap, &thisElevator)
 			lightsUpdateToFSM_ch <- thisElevator.Lights
 			requestUpdateToFSM_ch <- thisElevator.Requests
+
 			msg := network.NewRequest{
 				Id:      thisElevator.Id,
 				Request: buttonEvent,
@@ -103,7 +103,6 @@ func Infobank(
 			thisElevator.Requests[clearedRequests[0].Floor][elevator.BT_Cab] = false
 			thisElevator.Lights[clearedRequests[0].Floor][elevator.BT_Cab] = false
 			saveInfoToFile(thisElevator)
-			fmt.Printf("In the case, the ID is: %v \n \n ", thisElevator.Id)
 			elevatorMap[thisElevator.Id] = thisElevator
 
 			msg := network.RequestCleared{
@@ -151,51 +150,53 @@ func Infobank(
 
 			stateUpdateToNetwork_ch <- msg
 
-			// case Msg := <-networkUpdateRx_ch:
+		// case Msg := <-networkUpdateRx_ch:
 
-			// 	switch Msg.MsgType {
+		// 	switch Msg.MsgType {
 
-			// 	case network.NewOrder:
-			// 		handleNewOrder(elevatorMap, &Msg.Elevator, &thisElevator)
-			// 		toFSM_ch <- thisElevator
+		// 	case network.NewOrder:
+		// 		handleNewOrder(elevatorMap, &Msg.Elevator, &thisElevator)
+		// 		toFSM_ch <- thisElevator
 
-			// 	case network.OrderCompleted:
-			// 		handleOrderCompleted(elevatorMap, &Msg.Elevator, &thisElevator)
-			// 		toFSM_ch <- thisElevator
+		// 	case network.OrderCompleted:
+		// 		handleOrderCompleted(elevatorMap, &Msg.Elevator, &thisElevator)
+		// 		toFSM_ch <- thisElevator
 
-			// 	case network.StateUpdate:
-			// 		// Midlertidig løsning for packetloss ved slukking av lys, dette kan være kilde til bus, men funker fett nå (merk at vi alltid setter order counter til å være det vi får inn)
-			// 		if Msg.Elevator != elevatorMap[Msg.Elevator.Id] {
-			// 			handleOrderCompleted(elevatorMap, &Msg.Elevator, &thisElevator)
-			// 			toFSM_ch <- thisElevator
-			// 		}
-			// 		elevatorMap[Msg.Elevator.Id] = Msg.Elevator
+		// 	case network.StateUpdate:
+		// 		// Midlertidig løsning for packetloss ved slukking av lys, dette kan være kilde til bus, men funker fett nå (merk at vi alltid setter order counter til å være det vi får inn)
+		// 		if Msg.Elevator != elevatorMap[Msg.Elevator.Id] {
+		// 			handleOrderCompleted(elevatorMap, &Msg.Elevator, &thisElevator)
+		// 			toFSM_ch <- thisElevator
+		// 		}
+		// 		elevatorMap[Msg.Elevator.Id] = Msg.Elevator
 
-			// 	case network.PeriodicMsg:
-			// 		SyncronizeAll(thisElevator, elevatorMap, Msg.Elevator, button_ch)
+		// 	case network.PeriodicMsg:
+		// 		SyncronizeAll(thisElevator, elevatorMap, Msg.Elevator, button_ch)
 
-			// 	case network.ObstructedMsg:
+		// 	case network.ObstructedMsg:
 
-			// 		handleNewOrder(elevatorMap, &Msg.Elevator, &thisElevator)
+		// 		handleNewOrder(elevatorMap, &Msg.Elevator, &thisElevator)
 
-			// 		toFSM_ch <- thisElevator
-			// 	}
+		// 		toFSM_ch <- thisElevator
+		// 	}
 
-			// case <-periodicUpdate_ch:
-			// 	msg := network.Msg{
-			// 		MsgType:  network.PeriodicMsg,
-			// 		Elevator: thisElevator,
-			// 	}
-			// 	networkUpdateTx_ch <- msg
+		// case <-periodicUpdate_ch:
+		// 	msg := network.Msg{
+		// 		MsgType:  network.PeriodicMsg,
+		// 		Elevator: thisElevator,
+		// 	}
+		// 	networkUpdateTx_ch <- msg
 
-			// case peerUpdate := <-peerUpdate_ch:
-			// 	if len(peerUpdate.Lost) != 0 {
-			// 		handlePeerupdate(peerUpdate, &thisElevator, &elevatorMap, &hallRequestsMap)
-			// 		hallRequestsMap := hallrequestassigner.AssignHallRequests(elevatorMap)
-			// 		setLightMatrix(hallRequestsMap, &thisElevator)
-			// 		thisElevator.Requests = elevatorMap[thisElevator.Id].Requests
-			// 		toFSM_ch <- thisElevator
-			// 	}
+		case peerUpdate := <-peerUpdate_ch:
+			if len(peerUpdate.Lost) == 0 {
+				break
+			}
+			handlePeerupdate(peerUpdate, &thisElevator, &elevatorMap)
+			assignerList := createAssignerInput(elevatorMap)
+			hallRequestsMap := assigner.AssignHallRequests(assignerList)
+			thisElevator.Requests = elevatorMap[thisElevator.Id].Requests
+			setLightMatrix(hallRequestsMap, &thisElevator)
+			requestUpdateToFSM_ch <- thisElevator.Requests
 		}
 	}
 }
@@ -221,7 +222,7 @@ func PeriodicUpdate(periodicUpdate_ch chan bool) {
 	}
 }
 
-func handlePeerupdate(peerUpdate network.PeerUpdate, thisElevator *ElevatorInfo, elevatorMap *map[string]ElevatorInfo, newAssignmentsMap *map[string][4][2]bool) {
+func handlePeerupdate(peerUpdate network.PeerUpdate, thisElevator *ElevatorInfo, elevatorMap *map[string]ElevatorInfo) {
 
 	for i := 0; i < len(peerUpdate.Lost); i++ {
 		for j := 0; j < elevator.N_FLOORS; j++ {
@@ -230,8 +231,6 @@ func handlePeerupdate(peerUpdate network.PeerUpdate, thisElevator *ElevatorInfo,
 			}
 		}
 		delete(*elevatorMap, peerUpdate.Lost[i])
-		delete(*newAssignmentsMap, peerUpdate.Lost[i])
-		thisElevator.OrderCounter++
 	}
 	(*elevatorMap)[thisElevator.Id] = *thisElevator
 }
@@ -314,9 +313,6 @@ func createAssignerInput(elevatorMap map[string]ElevatorInfo) []assigner.Assigne
 			Requests: value.Requests,
 			State:    value.State,
 		}
-		fmt.Printf("value: %v \n", value)
-
-		fmt.Printf("value.id: %v \n", value.Id)
 		assignerList = append(assignerList, a)
 	}
 	return assignerList
@@ -335,7 +331,6 @@ func createAssignerInput(elevatorMap map[string]ElevatorInfo) []assigner.Assigne
 
 func saveInfoToFile(e ElevatorInfo) error {
 	requests := e.Requests
-	fmt.Printf("The name of the file is: %v \n \n", e.Id)
 	file, err := os.OpenFile(e.Id, os.O_WRONLY|os.O_CREATE, 0644)
 	if err != nil {
 		fmt.Printf("Failed to open file for writing: %v\n", err)

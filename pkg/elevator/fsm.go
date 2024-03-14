@@ -1,8 +1,6 @@
 package elevator
 
 import (
-	//"fmt"
-	//"fmt"
 	"fmt"
 	"time"
 
@@ -38,10 +36,11 @@ func FSM(requestUpdate_ch chan [N_FLOORS][N_BUTTONS]bool, clearRequestToInfobank
 
 		case lights := <-lightUpdate_ch:
 			elevator.Lights = lights
+			fmt.Printf("Det kommer en light update, og den er: %v! \n \n", lights)
 			setAllLights(elevator)
 
 		case newFloor := <-floorSensor_ch:
-
+			fmt.Print(" \n \n Floor sensor spoke! \n \n")
 			requestsBeforeNewFloor := elevator.Requests
 			fsmOnFloorArrival(elevator, newFloor, timer_ch)
 			stateToInfobank_ch <- elevator.State
@@ -56,6 +55,7 @@ func FSM(requestUpdate_ch chan [N_FLOORS][N_BUTTONS]bool, clearRequestToInfobank
 		case obstruction = <-obstruction_ch:
 			if !obstruction && elevator.State.Behaviour == EB_DoorOpen {
 				go timer.Run_timer(3, timer_ch)
+				//sette lys?
 			}
 		}
 	}
@@ -93,7 +93,7 @@ func fsmOnFloorArrival(e *Elevator, newFloor int, timer_ch chan bool) {
 
 	if requestShouldStop(*e) {
 		SetMotorDirection(MD_Stop)
-		//e.Dirn = MD_Stop // Ole added march 12, needed for re-init
+		e.State.Dirn = MD_Stop // Ole added march 12, needed for re-init
 		SetDoorOpenLamp(true)
 		requests_clearAtCurrentFloor(e)
 		go timer.Run_timer(3, timer_ch)
@@ -139,7 +139,6 @@ func HandleStopButtonPressed(e *Elevator) {
 
 func setAllLights(e *Elevator) {
 	for floor := 0; floor < N_FLOORS; floor++ {
-		e.Lights[floor][BT_Cab] = e.Requests[floor][BT_Cab]
 		for btn := 0; btn < N_BUTTONS; btn++ {
 			SetButtonLamp(ButtonType(btn), floor, e.Lights[floor][btn])
 		}
