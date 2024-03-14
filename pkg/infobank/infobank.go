@@ -45,17 +45,21 @@ func Infobank(
 	for {
 		select {
 		case buttonEvent := <-button_ch:
+
 			thisElevator.Requests[buttonEvent.Floor][buttonEvent.Button] = true
-			evaluateRequests(elevatorMap, &thisElevator)
+			elevatorMap[thisElevator.Id] = thisElevator
+			assignerList := createAssignerInput(elevatorMap)
+			hallRequestsMap := assigner.AssignHallRequests(assignerList)
+			setElevatorMap(hallRequestsMap, &elevatorMap)
+			thisElevator.Requests = elevatorMap[thisElevator.Id].Requests
+			setLightMatrix(hallRequestsMap, &thisElevator)
 			lightsUpdateToFSM_ch <- thisElevator.Lights
 			requestUpdateToFSM_ch <- thisElevator.Requests
-			
+
 			msg := network.NewRequest{
 				Id:		 thisElevator.Id,
 				Request: buttonEvent,
 			}
-
-			fmt.Printf("id sent after btn-press: %v\n", msg.Id)
 
 			newRequestToNetwork_ch <- msg
 
@@ -76,13 +80,13 @@ func Infobank(
 				Id: thisElevator.Id, 
 				State: newState,
 			}
-			fmt.Printf("id sent after status update: %v\n", msg.Id)
 
 			stateUpdateToNetwork_ch <- msg 
 			
 			elevatorMap[thisElevator.Id] = thisElevator
 
 		case clearedRequests := <- clearRequestFromFSM_ch:
+
 			for _, requests := range clearedRequests {
 				thisElevator.Requests[requests.Floor][requests.Button] = false
 				thisElevator.Lights[requests.Floor][requests.Button] = false
@@ -97,19 +101,16 @@ func Infobank(
 				ClearedRequests:  clearedRequests,
 			}
 			requestClearedToNetwork_ch <- msg
-			fmt.Printf("id sent cleared request: %v\n", msg.Id)
+
 
 
 			
 		case msg := <-newRequestFromNetwork_ch:
-			fmt.Printf("id recieved cleared request: %v\n", msg.Id)
 			updatedElev := elevatorMap[msg.Id]
 			updatedElev.Requests[msg.Request.Floor][msg.Request.Button] = true
 			elevatorMap[msg.Id] = updatedElev
-			fmt.Printf("elevatormap lenght before asignerinput is created: %v\n", len(elevatorMap))
 
 			assignerList := createAssignerInput(elevatorMap)
-			fmt.Printf("assigner input lenght after it is created: %v\n", len(assignerList))
 			hallRequestsMap := assigner.AssignHallRequests(assignerList)
 			
 			setElevatorMap(hallRequestsMap, &elevatorMap)
@@ -126,6 +127,7 @@ func Infobank(
 			elevatorMap[msg.Id] = updatedElev
 		
 		case msg := <- requestClearedFromNetwork_ch:
+
 			updatedElev := elevatorMap[msg.Id]
 			for _, requests := range msg.ClearedRequests {
 				updatedElev.Requests[requests.Floor][requests.Button] = false
@@ -203,6 +205,7 @@ func setElevatorMap(newAssignmentsMap map[string][4][2]bool, elevatorMap *map[st
 				tempElev.Requests[i][j] = requests[i][j]
 			}
 		}
+		fmt.Printf("id: %v \n", id)
 		(*elevatorMap)[id] = tempElev
 	}
 }
@@ -230,13 +233,19 @@ func handlePeerupdate(peerUpdate network.PeerUpdate, thisElevator *ElevatorInfo,
 }
 
 func evaluateRequests(elevatorMap map[string]ElevatorInfo, e *ElevatorInfo) {
+	fmt.Printf("one: %v\n", len(elevatorMap))
 	elevatorMap[e.Id] = *e
+	fmt.Printf("two: %v\n", len(elevatorMap))
 	assignerList := createAssignerInput(elevatorMap)
+	fmt.Printf("three: %v\n", len(elevatorMap))
 	hallRequestsMap := assigner.AssignHallRequests(assignerList)
-
+	fmt.Printf("four: %v\n", len(elevatorMap))
 	setElevatorMap(hallRequestsMap, &elevatorMap)
+	fmt.Printf("five: %v\n", len(hallRequestsMap))
 	e.Requests = elevatorMap[e.Id].Requests
+	fmt.Printf("six: %v\n", len(hallRequestsMap))
 	setLightMatrix(hallRequestsMap, e)
+	fmt.Printf("seven: %v\n", len(hallRequestsMap))
 }
 
 // func handleNewOrder(elevatorMap map[string]ElevatorInfo, recievedElevator *ElevatorInfo, thisElevator ElevatorInfo) {
@@ -303,12 +312,15 @@ func setLightMatrix(newAssignmentsMap map[string][4][2]bool, e *ElevatorInfo) {
 
 func createAssignerInput(elevatorMap map[string]ElevatorInfo) []assigner.AssignerInput {
 	assignerList := make([]assigner.AssignerInput, 0, len(elevatorMap))
-	for _, value := range elevatorMap {
+	for id, value := range elevatorMap {
 		a := assigner.AssignerInput {
-			Id: 		value.Id,
+			Id: 		id,
 			Requests: 	value.Requests,
 			State: 		value.State,
 		}
+		fmt.Printf("value: %v \n", value)
+
+		fmt.Printf("value.id: %v \n", value.Id)
 		assignerList = append(assignerList, a)
 	}
 	return assignerList
