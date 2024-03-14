@@ -79,7 +79,6 @@ func Infobank(
 			}
 
 			stateUpdateToNetwork_ch <- msg 
-			
 			elevatorMap[thisElevator.Id] = thisElevator
 
 		case clearedRequests := <- clearRequestFromFSM_ch:
@@ -98,9 +97,6 @@ func Infobank(
 				ClearedRequests:  clearedRequests,
 			}
 			requestClearedToNetwork_ch <- msg
-
-
-
 			
 		case msg := <-newRequestFromNetwork_ch:
 			updatedElev := elevatorMap[msg.Id]
@@ -132,6 +128,18 @@ func Infobank(
 			}
 			elevatorMap[msg.Id] = updatedElev
 			lightsUpdateToFSM_ch <- thisElevator.Lights
+		
+		case msg := <- obstructedFromNetwork_ch:
+			updatedElev := elevatorMap[msg.Id]
+			updatedElev.State.Obstructed = msg.Obstructed 
+			elevatorMap[msg.Id] = updatedElev
+
+			assignerList := createAssignerInput(elevatorMap)
+			hallRequestsMap := assigner.AssignHallRequests(assignerList)
+			setElevatorMap(hallRequestsMap, &elevatorMap)
+			thisElevator.Requests = elevatorMap[thisElevator.Id].Requests
+
+			requestUpdateToFSM_ch <- thisElevator.Requests
 		
 		case <- periodicUpdate_ch:
 			msg := network.StateUpdate { 

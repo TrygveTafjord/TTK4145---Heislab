@@ -8,7 +8,7 @@ import (
 )
 
 
-func Diagnostics(updateFromFSM_ch chan elevator.Elevator, setObstructedState_ch chan bool){
+func Diagnostics(updateFromFSM_ch chan elevator.Elevator, obstructionDiagnoze_ch chan bool){
 	timeInSameStateWhileOrders := 0
 	currentState := <-updateFromFSM_ch
 	prevState 	 := currentState
@@ -23,20 +23,23 @@ func Diagnostics(updateFromFSM_ch chan elevator.Elevator, setObstructedState_ch 
 				currentState = updatedElevator
 
 			case <-selfCheck_ch:
-				if hasRequest(currentState) && currentState.State.Behaviour == prevState.State.Behaviour {
+				if hasRequest(currentState) && currentState.State == prevState.State {
 					timeInSameStateWhileOrders += 1
 				} else {
 					timeInSameStateWhileOrders = 0
 				}
+				fmt.Printf("timeInStateWhithOrders: %v\n", timeInSameStateWhileOrders)
 
-				diagnose := selfDiagnose(currentState, prevState, timeInSameStateWhileOrders)
+				diagnose := selfDiagnose(currentState, timeInSameStateWhileOrders)
 								
 				switch diagnose {
 				
 					case Healthy:
-						break
+						fmt.Printf("Healty!\n")
+						
 					case Obstructed:
-						setObstructedState_ch <- true
+						fmt.Printf("Obstructed!\n")
+						obstructionDiagnoze_ch <- true
 					case Reinitialize:
 						fmt.Printf("Reinitialize!\n")
 				}
@@ -52,7 +55,7 @@ func PeriodicCheck(selfCheck_ch chan bool) {
 	}
 }
 
-func selfDiagnose(currentState elevator.Elevator, prevState elevator.Elevator, timeInSameStateWhileOrders int) Diagnose {
+func selfDiagnose(currentState elevator.Elevator, timeInSameStateWhileOrders int) Diagnose {
 	
 	if timeInSameStateWhileOrders > 0 && currentState.State.Behaviour == elevator.EB_Idle{
 		return Reinitialize

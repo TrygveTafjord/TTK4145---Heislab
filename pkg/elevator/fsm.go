@@ -15,8 +15,9 @@ func FSM(elevatorInit_ch chan Elevator,
 		clearRequestToInfobank_ch chan []ButtonEvent, 
 		stateToInfobank_ch chan State, 
 		lightUpdate_ch chan [N_FLOORS][N_BUTTONS]bool, 
+		obstructedStateToInfobank_ch chan bool,
 		updateDiagnostics_ch chan Elevator,
-		setObstructedState_ch chan bool) {
+		obstructionDiagnoze_ch chan bool) {
 
 	floorSensor_ch := make(chan int)
 	obstruction_ch := make(chan bool)
@@ -32,6 +33,7 @@ func FSM(elevatorInit_ch chan Elevator,
 		select {
 		case requests := <-requestUpdate_ch:
 			elevator.Requests = requests
+			fmt.Printf("requests: %v", requests)
 			fsmNewRequests(elevator, timer_ch)
 			if elevator.Requests != requests {
 				clearRequestToInfobank_ch <- getClearedRequests(requests, elevator.Requests)
@@ -61,7 +63,16 @@ func FSM(elevatorInit_ch chan Elevator,
 		case obstruction := <-obstruction_ch:
 			if !obstruction && elevator.State.Behaviour == EB_DoorOpen {
 				go timer.Run_timer(3, timer_ch)
+				if elevator.State.Obstructed {
+					elevator.State.Obstructed = false
+					updateDiagnostics_ch <- *elevator
+					obstructedStateToInfobank_ch <- false
+				} 
 			}
+
+		case <- obstructionDiagnoze_ch:
+			elevator.State.Obstructed = true
+			obstructedStateToInfobank_ch <- true
 		}
 	}
 }
@@ -69,24 +80,25 @@ func FSM(elevatorInit_ch chan Elevator,
 func HandleDeparture(e *Elevator, timer_ch chan bool) {
 	if GetObstruction() && e.State.Behaviour == EB_DoorOpen {
 		go timer.Run_timer(3, timer_ch)
-	} else {
-		e.State.Dirn, e.State.Behaviour = GetDirectionAndBehaviour(e)
+		return
+	} 
 
-		switch e.State.Behaviour {
+	e.State.Dirn, e.State.Behaviour = GetDirectionAndBehaviour(e)
 
-		case EB_DoorOpen:
-			fmt.Printf("DET SKJEDDE HANDLE DEPARTURE, HVAFAEN \n")
-			SetDoorOpenLamp(true)
-			requests_clearAtCurrentFloor(e)
-			go timer.Run_timer(3, timer_ch)
+	switch e.State.Behaviour {
 
-		case EB_Moving:
-			SetMotorDirection(e.State.Dirn)
-			SetDoorOpenLamp(false)
+	case EB_DoorOpen:
+		fmt.Printf("DET SKJEDDE HANDLE DEPARTURE, HVAFAEN \n")
+		SetDoorOpenLamp(true)
+		requests_clearAtCurrentFloor(e)
+		go timer.Run_timer(3, timer_ch)
 
-		case EB_Idle:
-			SetDoorOpenLamp(false)
-		}
+	case EB_Moving:
+		SetMotorDirection(e.State.Dirn)
+		SetDoorOpenLamp(false)
+
+	case EB_Idle:
+		SetDoorOpenLamp(false)
 	}
 }
 
