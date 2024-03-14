@@ -7,11 +7,11 @@ import (
 	// "strconv"
 	// "strings"
 
-	"project.com/pkg/infobank"
 	"project.com/pkg/elevator"
+	"project.com/pkg/infobank"
 )
 
-func ElevatorInit(elevInitInfobank_ch chan infobank.ElevatorInfo, elevInitFSM_ch chan elevator.Elevator, lastID string, ID string) {
+func ElevatorInit(elevInitInfobank_ch chan infobank.ElevatorInfo, elevInitFSM_ch chan elevator.Elevator, networkInit_ch chan string, lastID string, ID string) {
 	var e elevator.Elevator
 	var e_IB infobank.ElevatorInfo
 	//e.State.Standstill = 0
@@ -56,6 +56,8 @@ func ElevatorInit(elevInitInfobank_ch chan infobank.ElevatorInfo, elevInitFSM_ch
 	e_IB.OrderCounter = 0
 	elevInitFSM_ch <- e
 	elevInitInfobank_ch <- e_IB
+
+	networkInit_ch <- ID
 	// } else {
 
 	// 	cabCalls, e.OrderClearedCounter, e.OrderCounter, e.Behaviour, direction = readCSV(lastID)

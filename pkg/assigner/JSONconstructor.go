@@ -11,6 +11,7 @@ import (
 
 func AssignHallRequests(assignerList []AssignerInput) map[string][4][2]bool{
 	if len(assignerList) == 1 {
+		fmt.Printf("Assigning single\n")
 		return AssignHallRequestsSingle(assignerList)
 	}else{
 		return AssignHallRequestsMultiple(assignerList)

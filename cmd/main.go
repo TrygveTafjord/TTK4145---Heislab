@@ -38,23 +38,32 @@ func primaryProcess(lastID string, udpSendAddr string) {
 	const BUFFER_SIZE = 50
 
 	requestUpdate_ch := make(chan [elevator.N_FLOORS][elevator.N_BUTTONS]bool, BUFFER_SIZE)
-	clearRequest_ch := make(chan []elevator.ButtonEvent, BUFFER_SIZE)
-	stateUpdate_ch := make(chan elevator.State, BUFFER_SIZE)
-	lightsUpdate_ch := make(chan [elevator.N_FLOORS][elevator.N_BUTTONS]bool, BUFFER_SIZE)
-	obstruction_ch := make(chan bool, BUFFER_SIZE)
+	clearRequest_ch  := make(chan []elevator.ButtonEvent, BUFFER_SIZE)
+	stateUpdate_ch   := make(chan elevator.State, BUFFER_SIZE)
+	lightsUpdate_ch  := make(chan [elevator.N_FLOORS][elevator.N_BUTTONS]bool, BUFFER_SIZE)
+	obstruction_ch   := make(chan bool, BUFFER_SIZE)
 
-	elevInitFSM_ch := make(chan elevator.Elevator, 50)
-	elevInitInfobank_ch := make(chan infobank.ElevatorInfo)
-	networkUpdateTx_ch := make(chan network.Msg, 50)
-	networkUpdateRx_ch := make(chan network.Msg, 50)
+	initFSM_ch      := make(chan elevator.Elevator)
+	initInfobank_ch := make(chan infobank.ElevatorInfo)
+	initNetwork     := make(chan string)
+
+	requestInfobankToNetwork_ch 	:= make(chan network.NewRequest, BUFFER_SIZE)
+	requestNetworkToInfobank_ch 	:= make(chan network.NewRequest, BUFFER_SIZE)
+	obstructedInfobankToNetwork_ch  := make(chan network.Obstructed, BUFFER_SIZE)
+	obstructedNetworkToInfobank_ch 	:= make(chan network.Obstructed, BUFFER_SIZE)
+	stateInfobankToNetwork_ch 	  	:= make(chan network.StateUpdate, BUFFER_SIZE)
+	stateNetworkToInfobank_ch 	  	:= make(chan network.StateUpdate, BUFFER_SIZE)
+	clearedInfobankToNetwork_ch 	:= make(chan network.RequestCleared, BUFFER_SIZE)
+	clearedNetworkToInfobank_ch  	:= make(chan network.RequestCleared, BUFFER_SIZE)
+
 	peerUpdate_ch := make(chan network.PeerUpdate, 50)
 
-	go elevator.FSM(requestUpdate_ch, clearRequest_ch, stateUpdate_ch, lightsUpdate_ch, elevInitFSM_ch)
-	go infobank.Infobank(requestUpdate_ch, clearRequest_ch, stateUpdate_ch, lightsUpdate_ch, networkUpdateTx_ch, networkUpdateRx_ch, peerUpdate_ch, obstruction_ch)
-	//go network.Network_fsm(networkUpdateTx_ch, networkUpdateRx_ch, peerUpdate_ch)
+	go elevator.FSM(requestUpdate_ch, clearRequest_ch, stateUpdate_ch, lightsUpdate_ch, initFSM_ch)
+	go infobank.Infobank(initInfobank_ch, requestUpdate_ch, clearRequest_ch, stateUpdate_ch, lightsUpdate_ch, obstruction_ch, requestInfobankToNetwork_ch, requestNetworkToInfobank_ch, obstructedInfobankToNetwork_ch, obstructedNetworkToInfobank_ch, stateInfobankToNetwork_ch, stateNetworkToInfobank_ch, clearedInfobankToNetwork_ch, clearedNetworkToInfobank_ch, peerUpdate_ch)
+	go network.Network(initNetwork, requestInfobankToNetwork_ch, obstructedNetworkToInfobank_ch, obstructedInfobankToNetwork_ch, stateNetworkToInfobank_ch, stateInfobankToNetwork_ch, clearedNetworkToInfobank_ch, clearedInfobankToNetwork_ch, peerUpdate_ch)
 	ID, err := network.LocalIP()
 
-	initialize.ElevatorInit(elevInitInfobank_ch, elevInitFSM_ch, lastID, ID)
+	initialize.ElevatorInit(initInfobank_ch, initFSM_ch, initNetwork, lastID, ID)
 
 	for {
 		msg := ID
