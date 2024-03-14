@@ -29,20 +29,25 @@ func AssignHallRequestsSingle(assignerList []AssignerInput) map[string][4][2]boo
 func AssignHallRequestsMultiple(assignerList []AssignerInput) map[string][4][2]bool {
 	healthyElevators:= make(map[string]AssignerInput)
 	obstructedElevators := []string{}
-	obstructedOrders := [4][2] bool{}
-	emptyRequests := [4][2] bool{}
+	obstructedOrders    := [4][2] bool{}
+	emptyRequests       := [4][2] bool{}
+	fmt.Printf("lenght AssignerInput in asign hall multiple: %v\n", len(assignerList))
 
 	//if obstruction()
 	resolveObstrucedElevators(assignerList ,&healthyElevators, &obstructedElevators, &obstructedOrders)
+	fmt.Printf("lenght AssignerList after resolveObstructed: %v\n", len(assignerList))
 	redistributeObstructedOrders(len(obstructedElevators), &healthyElevators, obstructedOrders)
-	
+	fmt.Printf("lenght AssignerList after redistributeorders: %v\n", len(assignerList))
 
 	JSON := CreateJSON(assignerList...)
 	returnMap := HallRequestAssigner(JSON)
+	fmt.Printf("lengt returnmap: %v \n", len(returnMap))
 
 	for _,Id := range obstructedElevators{
 		returnMap[Id] = emptyRequests
 	}
+	fmt.Printf("lengt returnmap after checking obstructed: %v \n", len(returnMap))
+
 	return returnMap
 }
 

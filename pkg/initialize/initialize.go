@@ -54,10 +54,11 @@ func ElevatorInit(elevInitInfobank_ch chan infobank.ElevatorInfo, elevInitFSM_ch
 	e_IB.Id = ID
 	e_IB.OrderClearedCounter = 0
 	e_IB.OrderCounter = 0
+
+	networkInit_ch <- ID
 	elevInitFSM_ch <- e
 	elevInitInfobank_ch <- e_IB
 
-	networkInit_ch <- ID
 	// } else {
 
 	// 	cabCalls, e.OrderClearedCounter, e.OrderCounter, e.Behaviour, direction = readCSV(lastID)

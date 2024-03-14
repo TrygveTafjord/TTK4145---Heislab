@@ -38,6 +38,7 @@ func Infobank(
 	elevatorMap := make(map[string]ElevatorInfo)
 	//hallRequestsMap := make(map[string][4][2]bool)
 	thisElevator := <- init_ch
+	fmt.Printf("init id: %v \n", thisElevator.Id)
 
 	elevatorMap[thisElevator.Id] = thisElevator
 
@@ -54,6 +55,8 @@ func Infobank(
 				Request: buttonEvent,
 			}
 
+			fmt.Printf("id sent after btn-press: %v\n", msg.Id)
+
 			newRequestToNetwork_ch <- msg
 
 		case obstructed := <- obstructionFromFSM_ch:
@@ -63,7 +66,7 @@ func Infobank(
 			msg := network.Obstructed { 
 				Id: thisElevator.Id, 
 				Obstructed: obstructed,
-			}				
+			}
 			obstructedToNetwork_ch <- msg 
 		
 		case newState := <- stateUpdateFromFSM_ch:
@@ -73,6 +76,7 @@ func Infobank(
 				Id: thisElevator.Id, 
 				State: newState,
 			}
+			fmt.Printf("id sent after status update: %v\n", msg.Id)
 
 			stateUpdateToNetwork_ch <- msg 
 			
@@ -93,16 +97,21 @@ func Infobank(
 				ClearedRequests:  clearedRequests,
 			}
 			requestClearedToNetwork_ch <- msg
+			fmt.Printf("id sent cleared request: %v\n", msg.Id)
+
+
 			
-		case msg := <-newRequestFromNetwork_ch:	
+		case msg := <-newRequestFromNetwork_ch:
+			fmt.Printf("id recieved cleared request: %v\n", msg.Id)
 			updatedElev := elevatorMap[msg.Id]
-			fmt.Printf("updated elev: %v\n", updatedElev)
 			updatedElev.Requests[msg.Request.Floor][msg.Request.Button] = true
-			elevatorMap[msg.Id] = updatedElev		
+			elevatorMap[msg.Id] = updatedElev
+			fmt.Printf("elevatormap lenght before asignerinput is created: %v\n", len(elevatorMap))
+
 			assignerList := createAssignerInput(elevatorMap)
+			fmt.Printf("assigner input lenght after it is created: %v\n", len(assignerList))
 			hallRequestsMap := assigner.AssignHallRequests(assignerList)
 			
-			fmt.Printf("hallrequestmap after recieved Req: %v \n", hallRequestsMap)
 			setElevatorMap(hallRequestsMap, &elevatorMap)
 			setLightMatrix(hallRequestsMap, &thisElevator)
 			
@@ -122,9 +131,17 @@ func Infobank(
 				updatedElev.Requests[requests.Floor][requests.Button] = false
 				thisElevator.Lights[requests.Floor][requests.Button] = false
 			}
+			elevatorMap[msg.Id] = updatedElev
 			lightsUpdateToFSM_ch <- thisElevator.Lights
 		
 		case <- periodicUpdate_ch:
+			msg := network.StateUpdate { 
+				Id: thisElevator.Id, 
+				State: thisElevator.State,
+			}
+
+			stateUpdateToNetwork_ch <- msg 
+
 
 
 
