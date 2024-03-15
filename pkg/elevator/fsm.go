@@ -8,13 +8,13 @@ import (
 )
 
 func FSM(elevatorInit_ch chan Elevator,
-	    requestUpdate_ch chan [N_FLOORS][N_BUTTONS]bool, 
-		clearRequestToInfobank_ch chan []ButtonEvent, 
-		stateToInfobank_ch chan State, 
-		lightUpdate_ch chan [N_FLOORS][N_BUTTONS]bool, 
-		obstructedStateToInfobank_ch chan bool,
-		updateDiagnostics_ch chan Elevator,
-		obstructionDiagnose_ch chan bool) {
+	requestUpdate_ch chan [N_FLOORS][N_BUTTONS]bool,
+	clearRequestToInfobank_ch chan []ButtonEvent,
+	stateToInfobank_ch chan State,
+	lightUpdate_ch chan [N_FLOORS][N_BUTTONS]bool,
+	obstructedStateToInfobank_ch chan bool,
+	updateDiagnostics_ch chan Elevator,
+	obstructionDiagnose_ch chan bool) {
 
 	floorSensor_ch := make(chan int)
 	obstruction_ch := make(chan bool)
@@ -39,11 +39,9 @@ func FSM(elevatorInit_ch chan Elevator,
 
 		case lights := <-lightUpdate_ch:
 			elevator.Lights = lights
-			fmt.Printf("Det kommer en light update, og den er: %v! \n \n", lights)
 			setAllLights(elevator)
 
 		case newFloor := <-floorSensor_ch:
-			fmt.Print(" \n \n Floor sensor spoke! \n \n")
 			requestsBeforeNewFloor := elevator.Requests
 			fsmOnFloorArrival(elevator, newFloor, timer_ch)
 			stateToInfobank_ch <- elevator.State
@@ -51,7 +49,7 @@ func FSM(elevatorInit_ch chan Elevator,
 				clearRequestToInfobank_ch <- getClearedRequests(requestsBeforeNewFloor, elevator.Requests)
 			}
 			updateDiagnostics_ch <- *elevator
-		
+
 		case <-timer_ch:
 			HandleDeparture(elevator, timer_ch)
 			stateToInfobank_ch <- elevator.State
@@ -64,10 +62,10 @@ func FSM(elevatorInit_ch chan Elevator,
 					elevator.State.OutOfService = false
 					updateDiagnostics_ch <- *elevator
 					obstructedStateToInfobank_ch <- false
-				} 
+				}
 			}
 
-		case <- obstructionDiagnose_ch:
+		case <-obstructionDiagnose_ch:
 			fmt.Printf("FSM recieved obstructed from diagnoze!\n")
 			elevator.State.OutOfService = true
 			obstructedStateToInfobank_ch <- true
@@ -79,7 +77,7 @@ func HandleDeparture(e *Elevator, timer_ch chan bool) {
 	if GetObstruction() && e.State.Behaviour == EB_DoorOpen {
 		go timer.Run_timer(3, timer_ch)
 		return
-	} 
+	}
 
 	e.State.Dirn, e.State.Behaviour = GetDirectionAndBehaviour(e)
 
@@ -155,7 +153,6 @@ func PeriodicCheck(selfCheck_ch chan bool) {
 		selfCheck_ch <- true
 	}
 }
-
 
 func Check_request(elevator Elevator) bool {
 	for i := 0; i < N_FLOORS; i++ {
