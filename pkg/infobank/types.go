@@ -10,6 +10,5 @@ type ElevatorInfo struct {
 	OrderCounter        int
 	Requests            [elevator.N_FLOORS][elevator.N_BUTTONS]bool
 	Lights              [elevator.N_FLOORS][elevator.N_BUTTONS]bool
-	State 				elevator.State
+	State               elevator.State
 }
-
