@@ -21,8 +21,11 @@ func startBackupProcess() {
 	exec.Command("gnome-terminal", "--", "go", "run", "main.go").Run()
 }
 
-func primaryProcess(udpSendAddr string) {
-	sendUDPAddr, err := net.ResolveUDPAddr("udp", udpSendAddr)
+func primaryProcess() {
+	fmt.Print("We get to this place")
+	sendAddr := "255.255.255.255:20009"
+
+	sendUDPAddr, err := net.ResolveUDPAddr("udp", sendAddr)
 	if err != nil {
 		fmt.Println(err)
 		fmt.Print("I found an error in sendudpaddr")
@@ -35,7 +38,7 @@ func primaryProcess(udpSendAddr string) {
 		return
 	}
 	defer conn.Close()
-
+	fmt.Printf("Yelling into the void (aka sending heartbeats) at: %s\n", sendUDPAddr.String())
 	const BUFFER_SIZE = 50
 
 	initFSM_ch := make(chan elevator.Elevator, BUFFER_SIZE)
@@ -131,29 +134,33 @@ func primaryProcess(udpSendAddr string) {
 
 func backupProcess() {
 	fmt.Printf("---------BACKUP PHASE---------\n")
-
-	udpReceiveAddr := "127.0.0.1:"
-	udpSendAddr := "127.0.0.1:"
-
-	receiveUDPAddr, err := net.ResolveUDPAddr("udp", udpReceiveAddr)
+	receiveAddr := ":20009"
+	receiveUDPAddr, err := net.ResolveUDPAddr("udp", receiveAddr)
 	if err != nil {
 		fmt.Println(err)
 		return
 	}
-
+	
 	conn, err := net.ListenUDP("udp", receiveUDPAddr)
 	if err != nil {
 		fmt.Println(err)
 		return
 	}
-
+	
 	defer conn.Close()
-
-	elevator.Init("localhost:", 4)
+	fmt.Printf("Ears wide open, listening at: %s\n", receiveUDPAddr.String())
+	ID, err := network.LocalIP()
+	if err != nil {    
+		fmt.Println(err)
+		return
+	}
+	fmt.Printf("ID: %s\n", ID)
+	
+	elevator.Init(ID + ":15657", 4)
 
 	for {
 		buffer := make([]byte, 1024)
-		conn.SetReadDeadline(time.Now().Add(heartbeatSleep * 5 * time.Millisecond))
+		conn.SetReadDeadline(time.Now().Add(heartbeatSleep * 10 * time.Millisecond))
 		_, _, err := conn.ReadFromUDP(buffer)
 
 		if err == nil {
@@ -163,7 +170,7 @@ func backupProcess() {
 				conn.Close()
 				startBackupProcess()
 				fmt.Print(("I start primary process"))
-				primaryProcess(udpSendAddr)
+				primaryProcess()
 				return
 			} else {
 				fmt.Println("Error reading from UDP:", err)
