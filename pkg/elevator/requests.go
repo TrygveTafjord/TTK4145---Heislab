@@ -47,13 +47,13 @@ func requestShouldStop(e Elevator) bool {
 	}
 }
 
-func GetDirectionAndBehaviour(e *Elevator) (MotorDirection, ElevatorBehaviour) {
+func getDirectionAndBehaviour(e *Elevator) (MotorDirection, ElevatorBehaviour) {
 	switch e.State.Dirn {
 	case MD_Up:
 		if requestsAbove(*e) {
 			return MD_Up, EB_Moving
 		} else if requestsHere(*e) {
-			return MD_Stop, EB_DoorOpen
+			return MD_Down, EB_DoorOpen
 		} else if requestsBelow(*e) {
 			return MD_Down, EB_Moving
 		} else {
@@ -63,7 +63,7 @@ func GetDirectionAndBehaviour(e *Elevator) (MotorDirection, ElevatorBehaviour) {
 		if requestsBelow(*e) {
 			return MD_Down, EB_Moving
 		} else if requestsHere(*e) {
-			return MD_Stop, EB_DoorOpen
+			return MD_Up, EB_DoorOpen
 		} else if requestsAbove(*e) {
 			return MD_Up, EB_Moving
 		} else {
@@ -84,7 +84,7 @@ func GetDirectionAndBehaviour(e *Elevator) (MotorDirection, ElevatorBehaviour) {
 	}
 }
 
-func requests_clearAtCurrentFloor(e *Elevator) {
+func requestsAndLightsClearAtCurrentFloor(e *Elevator) {
 
 	e.Requests[e.State.Floor][BT_Cab] = false
 	e.Lights[e.State.Floor][BT_Cab] = false

@@ -26,11 +26,13 @@ func primaryProcess(port string, udpSendAddr string) {
 	sendUDPAddr, err := net.ResolveUDPAddr("udp", udpSendAddr)
 	if err != nil {
 		fmt.Println(err)
+		fmt.Print("I found an error in sendudpaddr")
 		return
 	}
 	conn, err := net.DialUDP("udp", nil, sendUDPAddr)
 	if err != nil {
 		fmt.Println(err)
+		fmt.Print("I found an error in DIAL")
 		return
 	}
 	defer conn.Close()

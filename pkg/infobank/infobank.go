@@ -161,7 +161,11 @@ func Infobank(
 			updatedElev := elevatorMap[msg.Id]
 			for _, requests := range msg.ClearedRequests {
 				updatedElev.Requests[requests.Floor][requests.Button] = false
-				thisElevator.Lights[requests.Floor][requests.Button] = false
+				fmt.Printf("Her er vi!\n")
+				if requests.Button != elevator.BT_Cab {
+					fmt.Printf("Dette skjedde etterpå!\n")
+					thisElevator.Lights[requests.Floor][requests.Button] = false
+				}
 			}
 			elevatorMap[msg.Id] = updatedElev
 			lightsUpdateToFSM_ch <- thisElevator.Lights
@@ -292,8 +296,6 @@ func evaluateRequests(elevatorMap *map[string]ElevatorInfo, e *ElevatorInfo) {
 	setLightMatrix(*elevatorMap, e)
 }
 
-
-
 func removeDeadElevators(elevatorMap map[string]ElevatorInfo) (map[string]ElevatorInfo, [elevator.N_FLOORS][elevator.N_BUTTONS - 1]bool) {
 	var ordersToBeTransferred [elevator.N_FLOORS][elevator.N_BUTTONS - 1]bool
 	assignmentsMap := make(map[string]ElevatorInfo)
@@ -329,7 +331,7 @@ func distributeRequests(elevatorMap *map[string]ElevatorInfo, e *ElevatorInfo) {
 
 func syncronizeLights(requests [elevator.N_FLOORS][elevator.N_BUTTONS]bool, id string, elevatorMap map[string]ElevatorInfo, lights *[elevator.N_FLOORS][elevator.N_BUTTONS]bool) {
 	for i := 0; i < elevator.N_FLOORS; i++ {
-		for j := 0; j < elevator.N_BUTTONS; j++ {
+		for j := 0; j < elevator.N_BUTTONS-1; j++ {
 			if requests[i][j] != elevatorMap[id].Requests[i][j] {
 				lights[i][j] = requests[i][j]
 			}
@@ -349,7 +351,6 @@ func createAssignerInput(assignerMap map[string]ElevatorInfo) []assigner.Assigne
 	}
 	return assignerList
 }
-
 
 func transferOrders(ordersToBeTransferred [elevator.N_FLOORS][elevator.N_BUTTONS - 1]bool, assignmentsMap map[string]ElevatorInfo) map[string]ElevatorInfo {
 	returnMap := make(map[string]ElevatorInfo)

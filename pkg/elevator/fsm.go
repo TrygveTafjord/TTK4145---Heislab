@@ -1,8 +1,6 @@
 package elevator
 
 import (
-	"time"
-
 	"project.com/pkg/timer"
 )
 
@@ -30,6 +28,7 @@ func FSM(elevatorInit_ch chan Elevator,
 		case requests := <-requestUpdate_ch:
 			elevator.Requests = requests
 			fsmNewRequests(elevator, timer_ch)
+
 			if elevator.Requests != requests {
 				clearRequestToInfobank_ch <- getClearedRequests(requests, elevator.Requests)
 			}
@@ -44,6 +43,7 @@ func FSM(elevatorInit_ch chan Elevator,
 			requestsBeforeNewFloor := elevator.Requests
 			fsmOnFloorArrival(elevator, newFloor, timer_ch)
 			stateToInfobank_ch <- elevator.State
+
 			if requestsBeforeNewFloor != elevator.Requests {
 				clearRequestToInfobank_ch <- getClearedRequests(requestsBeforeNewFloor, elevator.Requests)
 			}
@@ -51,9 +51,15 @@ func FSM(elevatorInit_ch chan Elevator,
 			updateDiagnostics_ch <- *elevator
 
 		case <-timer_ch:
+			requestsBeforeNewFloor := elevator.Requests
 			handleDeparture(elevator, timer_ch)
 			stateToInfobank_ch <- elevator.State
 			updateDiagnostics_ch <- *elevator
+
+			if elevator.Requests != requestsBeforeNewFloor {
+				clearRequestToInfobank_ch <- getClearedRequests(requestsBeforeNewFloor, elevator.Requests)
+				setAllLights(elevator)
+			}
 
 		case obstruction := <-obstruction_ch:
 			if !obstruction && elevator.State.Behaviour == EB_DoorOpen {
@@ -76,20 +82,20 @@ func FSM(elevatorInit_ch chan Elevator,
 func fsmNewRequests(e *Elevator, timer_ch chan bool) {
 	if e.State.Behaviour == EB_DoorOpen {
 		if requests_shouldClearImmediately(*e) {
-			requests_clearAtCurrentFloor(e)
+			requestsAndLightsClearAtCurrentFloor(e)
 			go timer.Run_timer(3, timer_ch)
 			setAllLights(e)
 		}
 		return
 	}
 
-	e.State.Dirn, e.State.Behaviour = GetDirectionAndBehaviour(e)
+	e.State.Dirn, e.State.Behaviour = getDirectionAndBehaviour(e)
 	switch e.State.Behaviour {
 
 	case EB_DoorOpen:
 		SetDoorOpenLamp(true)
 		go timer.Run_timer(3, timer_ch)
-		requests_clearAtCurrentFloor(e)
+		requestsAndLightsClearAtCurrentFloor(e)
 
 	case EB_Moving:
 		SetMotorDirection(e.State.Dirn)
@@ -103,13 +109,14 @@ func handleDeparture(e *Elevator, timer_ch chan bool) {
 		return
 	}
 
-	e.State.Dirn, e.State.Behaviour = GetDirectionAndBehaviour(e)
+	e.State.Dirn, e.State.Behaviour = getDirectionAndBehaviour(e)
 
 	switch e.State.Behaviour {
 
 	case EB_DoorOpen:
 		SetDoorOpenLamp(true)
-		requests_clearAtCurrentFloor(e)
+		requestsAndLightsClearAtCurrentFloor(e)
+		setAllLights(e)
 		go timer.Run_timer(3, timer_ch)
 
 	case EB_Moving:
@@ -129,11 +136,11 @@ func fsmOnFloorArrival(e *Elevator, newFloor int, timer_ch chan bool) {
 
 	if requestShouldStop(*e) {
 		SetMotorDirection(MD_Stop)
-		e.State.Dirn = MD_Stop
 		SetDoorOpenLamp(true)
-		requests_clearAtCurrentFloor(e)
+		requestsAndLightsClearAtCurrentFloor(e)
 		go timer.Run_timer(3, timer_ch)
 		e.State.Behaviour = EB_DoorOpen
+		e.State.Dirn = MD_Stop
 		setAllLights(e)
 	}
 }
@@ -143,13 +150,6 @@ func setAllLights(e *Elevator) {
 		for btn := 0; btn < N_BUTTONS; btn++ {
 			SetButtonLamp(ButtonType(btn), floor, e.Lights[floor][btn])
 		}
-	}
-}
-
-func PeriodicCheck(selfCheck_ch chan bool) {
-	for {
-		time.Sleep(1000 * time.Millisecond)
-		selfCheck_ch <- true
 	}
 }
 
