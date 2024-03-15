@@ -130,12 +130,10 @@ func requests_shouldClearImmediately(e Elevator) bool {
 	for _, buttonevent := range buttonsPressed {
 
 		switch e.State.Dirn {
-
 		case MD_Up:
 			if buttonevent.Button == BT_HallUp || buttonevent.Button == BT_Cab {
 				return true
 			}
-
 		case MD_Down:
 			if buttonevent.Button == BT_HallDown || buttonevent.Button == BT_Cab {
 				return true
@@ -144,9 +142,7 @@ func requests_shouldClearImmediately(e Elevator) bool {
 			if buttonevent.Button == BT_HallDown || buttonevent.Button == BT_Cab || buttonevent.Button == BT_HallUp {
 				return true
 			}
-
 		}
-
 	}
 	return false
 }

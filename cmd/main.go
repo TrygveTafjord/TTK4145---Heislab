@@ -95,7 +95,8 @@ func primaryProcess(port string, udpSendAddr string) {
 		periodicNetworkToInfobank_ch,
 		peerUpdate_ch)
 
-	go network.Network(initNetwork_ch,
+	go network.Network(
+		initNetwork_ch,
 		requestNetworkToInfobank_ch,
 		requestInfobankToNetwork_ch,
 		recieveRequestConfirmation_ch,

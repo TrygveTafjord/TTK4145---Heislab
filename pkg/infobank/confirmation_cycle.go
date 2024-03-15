@@ -17,10 +17,6 @@ func confirmNewAssignment(
 	id string,
 ) bool {
 
-	if numElevators == 1 {
-		return true
-	}
-
 	timeOut_ch := make(chan bool)
 
 	const CONFIRM_TIME float64 = 0.1
@@ -34,7 +30,7 @@ func confirmNewAssignment(
 	newRequestToNetwork_ch <- msg
 
 	go timer.Run_timer(CONFIRM_TIME, timeOut_ch)
-	ticker := time.NewTicker(10 * time.Millisecond)
+	ticker := time.NewTicker(5 * time.Millisecond)
 
 	for {
 		select {

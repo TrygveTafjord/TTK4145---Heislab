@@ -73,6 +73,30 @@ func FSM(elevatorInit_ch chan Elevator,
 	}
 }
 
+func fsmNewRequests(e *Elevator, timer_ch chan bool) {
+	if e.State.Behaviour == EB_DoorOpen {
+		if requests_shouldClearImmediately(*e) {
+			requests_clearAtCurrentFloor(e)
+			go timer.Run_timer(3, timer_ch)
+			setAllLights(e)
+		}
+		return
+	}
+
+	e.State.Dirn, e.State.Behaviour = GetDirectionAndBehaviour(e)
+	switch e.State.Behaviour {
+
+	case EB_DoorOpen:
+		SetDoorOpenLamp(true)
+		go timer.Run_timer(3, timer_ch)
+		requests_clearAtCurrentFloor(e)
+
+	case EB_Moving:
+		SetMotorDirection(e.State.Dirn)
+	}
+	setAllLights(e)
+}
+
 func HandleDeparture(e *Elevator, timer_ch chan bool) {
 	if GetObstruction() && e.State.Behaviour == EB_DoorOpen {
 		go timer.Run_timer(3, timer_ch)
@@ -105,37 +129,13 @@ func fsmOnFloorArrival(e *Elevator, newFloor int, timer_ch chan bool) {
 
 	if requestShouldStop(*e) {
 		SetMotorDirection(MD_Stop)
-		e.State.Dirn = MD_Stop // Ole added march 12, needed for re-init
+		e.State.Dirn = MD_Stop
 		SetDoorOpenLamp(true)
 		requests_clearAtCurrentFloor(e)
 		go timer.Run_timer(3, timer_ch)
 		e.State.Behaviour = EB_DoorOpen
 		setAllLights(e)
 	}
-}
-
-func fsmNewRequests(e *Elevator, timer_ch chan bool) {
-	if e.State.Behaviour == EB_DoorOpen {
-		if requests_shouldClearImmediately(*e) {
-			requests_clearAtCurrentFloor(e)
-			go timer.Run_timer(3, timer_ch)
-			setAllLights(e)
-		}
-		return
-	}
-
-	e.State.Dirn, e.State.Behaviour = GetDirectionAndBehaviour(e)
-	switch e.State.Behaviour {
-
-	case EB_DoorOpen:
-		SetDoorOpenLamp(true)
-		go timer.Run_timer(3, timer_ch)
-		requests_clearAtCurrentFloor(e)
-
-	case EB_Moving:
-		SetMotorDirection(e.State.Dirn)
-	}
-	setAllLights(e)
 }
 
 func setAllLights(e *Elevator) {
@@ -153,17 +153,6 @@ func PeriodicCheck(selfCheck_ch chan bool) {
 	}
 }
 
-func Check_request(elevator Elevator) bool {
-	for i := 0; i < N_FLOORS; i++ {
-		for j := 0; j < N_BUTTONS; j++ {
-			if elevator.Requests[i][j] {
-				return true
-			}
-		}
-	}
-	return false
-}
-
 func getClearedRequests(oldRequests [N_FLOORS][N_BUTTONS]bool, newRequests [N_FLOORS][N_BUTTONS]bool) []ButtonEvent {
 	var clearedRequests []ButtonEvent
 	for i := 0; i < N_FLOORS; i++ {
@@ -173,7 +162,5 @@ func getClearedRequests(oldRequests [N_FLOORS][N_BUTTONS]bool, newRequests [N_FL
 			}
 		}
 	}
-
 	return clearedRequests
-
 }

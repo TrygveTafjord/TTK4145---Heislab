@@ -56,11 +56,11 @@ func Infobank(
 
 		case buttonEvent := <-button_ch:
 
-			if !confirmNewAssignment(newRequestToNetwork_ch, recieveConfirmation_ch, buttonEvent, len(elevatorMap), thisElevator.Id) {
-				fmt.Print("Not Confirmed! \n")
-				break
+			if len(elevatorMap) > 1 {
+				if !confirmNewAssignment(newRequestToNetwork_ch, recieveConfirmation_ch, buttonEvent, len(elevatorMap), thisElevator.Id) {
+					break
+				}
 			}
-			fmt.Printf("got buttonpress confirmed!\n")
 
 			thisElevator.Requests[buttonEvent.Floor][buttonEvent.Button] = true
 			distributeRequests(&elevatorMap, &thisElevator)
@@ -116,7 +116,6 @@ func Infobank(
 			requestClearedToNetwork_ch <- msg
 
 		case msg := <-newRequestFromNetwork_ch:
-			fmt.Printf("got new request!\n")
 
 			confirmation := network.Confirm{
 				Id:      thisElevator.Id,
@@ -126,8 +125,8 @@ func Infobank(
 
 			updatedElev := elevatorMap[msg.Id]
 			updatedElev.Requests[msg.Request.Floor][msg.Request.Button] = true
-
 			elevatorMap[msg.Id] = updatedElev
+
 			assignerList := createAssignerInput(elevatorMap)
 			hallRequestsMap := assigner.AssignHallRequests(assignerList)
 			setElevatorMap(hallRequestsMap, &elevatorMap)
@@ -164,8 +163,8 @@ func Infobank(
 
 			elevatorMap[msg.Id] = updatedElev
 			setElevatorMap(hallRequestsMap, &elevatorMap)
-
 			thisElevator.Requests = elevatorMap[thisElevator.Id].Requests
+
 			requestUpdateToFSM_ch <- thisElevator.Requests
 
 		case <-periodicUpdate_ch:
@@ -178,6 +177,7 @@ func Infobank(
 			periodicInfobankToNetwork_ch <- msg
 
 		case msg := <-periodicNetworkToInfobank_ch:
+
 			recievedElevator := elevatorMap[msg.Id]
 			recievedElevator.Requests = msg.Requests
 			recievedElevator.State = msg.State
@@ -196,11 +196,12 @@ func Infobank(
 			if len(peerUpdate.Lost) == 0 {
 				break
 			}
-			handlePeerupdate(peerUpdate, &thisElevator, &elevatorMap)
+			removeLostPeers(peerUpdate, &thisElevator, &elevatorMap)
 
 			distributeRequests(&elevatorMap, &thisElevator)
 
 			setLightMatrix(elevatorMap, &thisElevator)
+
 			requestUpdateToFSM_ch <- thisElevator.Requests
 		}
 	}
@@ -226,7 +227,7 @@ func PeriodicUpdate(periodicUpdate_ch chan bool) {
 	}
 }
 
-func handlePeerupdate(peerUpdate network.PeerUpdate, thisElevator *ElevatorInfo, elevatorMap *map[string]ElevatorInfo) {
+func removeLostPeers(peerUpdate network.PeerUpdate, thisElevator *ElevatorInfo, elevatorMap *map[string]ElevatorInfo) {
 
 	for i := 0; i < len(peerUpdate.Lost); i++ {
 		for j := 0; j < elevator.N_FLOORS; j++ {
@@ -334,44 +335,11 @@ func boolToString(value bool) string {
 	}
 }
 
-// func SyncronizeAll(thisElevator ElevatorInfo, elevatorMap map[string]ElevatorInfo, recievedElevator ElevatorInfo, button_ch chan elevator.ButtonEvent) {
-// 	combinedrequests := thisElevator.Requests
-
-// 	for _, e := range elevatorMap {
-// 		for i := 0; i < elevator.N_FLOORS; i++ {
-// 			for j := 0; j < elevator.N_BUTTONS-1; j++ {
-// 				combinedrequests[i][j] = combinedrequests[i][j] || e.Requests[i][j]
-// 			}
-// 		}
-// 	}
-
-// 	if thisElevator.Lights != recievedElevator.Lights || thisElevator.Lights != combinedrequests {
-// 		for i := 0; i < elevator.N_FLOORS; i++ {
-// 			for j := 0; j < elevator.N_BUTTONS-1; j++ {
-// 				if thisElevator.Lights[i][j] != recievedElevator.Lights[i][j] {
-// 					button := new(elevator.ButtonEvent)
-// 					button.Floor = i
-// 					button.Button = elevator.ButtonType(j)
-// 					button_ch <- *button
-// 					thisElevator.OrderCounter = recievedElevator.OrderCounter + 1
-// 				} else if combinedrequests[i][j] != thisElevator.Lights[i][j] {
-// 					button := new(elevator.ButtonEvent)
-// 					button.Floor = i
-// 					button.Button = elevator.ButtonType(j)
-// 					button_ch <- *button
-// 					thisElevator.OrderCounter = recievedElevator.OrderCounter + 1
-
-// 				}
-// 			}
-// 		}
-// 	}
-// }
-
 func inheritedRequests(thisElevator ElevatorInfo) []elevator.ButtonEvent {
 	var BTNevents []elevator.ButtonEvent
 	for floor := 0; floor < 4; floor++ {
 		if thisElevator.Requests[floor][elevator.BT_Cab] {
-			BTNevents = append(BTNevents, elevator.ButtonEvent{floor, elevator.BT_Cab})
+			BTNevents = append(BTNevents, elevator.ButtonEvent{Floor: floor, Button: elevator.BT_Cab})
 		}
 	}
 	return BTNevents
