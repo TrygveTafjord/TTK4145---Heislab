@@ -57,91 +57,52 @@ func confirmNewAssignment(
 	}
 }
 
-// func confirmRemovedAssignments(
-// 	requestClearedToNetwork_ch chan network.RequestCleared,
-// 	confirmRequest_ch chan network.Confirm,
-// 	buttonEvent []elevator.ButtonEvent,
-// 	numElevators int,
-// 	id string,
-// ) bool {
+//confirmObstruction(obstructedToNetwork_ch, recieveConfirmation_ch, obstructed, len(elevatorMap), thisElevator.Id)
 
-// 	timeOut_ch := make(chan bool)
+func confirmObstructionState(
+	obstructedToNetwork_ch chan network.Obstructed,
+	confirmRequest_ch chan network.Confirm,
+	obstruction bool,
+	numElevators int,
+	id string,
+) {
 
-// 	const CONFIRM_TIME float64 = 0.1
-// 	confirmedNodes := make(map[string]bool)
+	timeOut_ch := make(chan bool)
 
-// 	msg := network.RequestCleared{
-// 		Id:              id,
-// 		ClearedRequests: buttonEvent,
-// 	}
+	const CONFIRM_TIME float64 = 0.15
+	confirmedNodes := make(map[string]bool)
 
-// 	requestClearedToNetwork_ch <- msg
+	msg := network.Obstructed{
+		Id:         id,
+		Obstructed: obstruction,
+	}
 
-// 	go timer.Run_timer(CONFIRM_TIME, timeOut_ch)
-// 	ticker := time.NewTicker(20 * time.Millisecond)
+	obstructedToNetwork_ch <- msg
 
-// 	for {
-// 		select {
+	go timer.Run_timer(CONFIRM_TIME, timeOut_ch)
+	ticker := time.NewTicker(5 * time.Millisecond)
 
-// 		case msg := <-confirmRequest_ch:
+	for {
+		select {
 
-// 			if msg.PassWrd != id+fmt.Sprint(buttonEvent[0].Button)+fmt.Sprint(buttonEvent[0].Floor) {
-// 				break
-// 			}
+		case msg := <-confirmRequest_ch:
 
-// 			confirmedNodes[msg.Id] = true
+			if msg.PassWrd != id {
+				break
+			}
 
-// 			if len(confirmedNodes) == numElevators-1 {
-// 				return true
-// 			}
+			confirmedNodes[msg.Id] = true
 
-// 		case <-ticker.C:
-// 			requestClearedToNetwork_ch <- msg
+			if len(confirmedNodes) == numElevators-1 {
+				return
+			}
 
-// 		case <-timeOut_ch:
-// 			return false
-// 		}
-// 	}
-// }
+		case <-ticker.C:
+			fmt.Printf("sent a request!\n")
+			obstructedToNetwork_ch <- msg
 
-// func msgConfirmed(
-// 	network_ch chan interface{},
-// 	confirmRequest_ch chan network.Confirm,
-// 	numElevators int,
-// 	passWord int,
-// 	msgToNetwork interface{},
-// ) bool {
-
-// 	timeOut_ch := make(chan bool)
-
-// 	const CONFIRM_TIME float64 = 0.1
-// 	confirmedNodes := make(map[string]bool)
-
-// 	network_ch <- msgToNetwork
-
-// 	go timer.Run_timer(CONFIRM_TIME, timeOut_ch)
-// 	ticker := time.NewTicker(20 * time.Millisecond)
-
-// 	for {
-// 		select {
-
-// 		case msg := <-confirmRequest_ch:
-
-// 			if msg.PassWrd != passWord {
-// 				break
-// 			}
-
-// 			confirmedNodes[msg.Id] = true
-
-// 			if len(confirmedNodes) == numElevators-1{
-// 				return true
-// 			}
-
-// 		case <- ticker.C:
-// 			network_ch <- msgToNetwork
-
-// 		case <- timeOut_ch:
-// 			return false
-// 		}
-// 	}
-// }
+		case <-timeOut_ch:
+			return
+		}
+	}
+}

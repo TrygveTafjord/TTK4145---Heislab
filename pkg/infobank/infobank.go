@@ -75,12 +75,17 @@ func Infobank(
 		case obstructed := <-obstructionFromFSM_ch:
 
 			thisElevator.State.OutOfService = obstructed
+
 			distributeRequests(&elevatorMap, &thisElevator)
-			msg := network.Obstructed{
-				Id:         thisElevator.Id,
-				Obstructed: obstructed,
-			}
-			obstructedToNetwork_ch <- msg
+
+			confirmObstructionState(obstructedToNetwork_ch, recieveConfirmation_ch, obstructed, len(elevatorMap), thisElevator.Id)
+
+			// msg := network.Obstructed{
+			// 	Id:         thisElevator.Id,
+			// 	Obstructed: obstructed,
+			// }
+			//confirmObstruction(obstructedToNetwork_ch, recieveConfirmation_ch, obstructed, len(elevatorMap), thisElevator.Id)
+			// obstructedToNetwork_ch <- msg
 
 		case newState := <-stateUpdateFromFSM_ch:
 
@@ -139,6 +144,7 @@ func Infobank(
 			requestUpdateToFSM_ch <- thisElevator.Requests
 
 		case msg := <-stateUpdateFromNetwork_ch:
+
 			updatedElev := elevatorMap[msg.Id]
 			updatedElev.State = msg.State
 			elevatorMap[msg.Id] = updatedElev
@@ -154,6 +160,14 @@ func Infobank(
 			lightsUpdateToFSM_ch <- thisElevator.Lights
 
 		case msg := <-obstructedFromNetwork_ch:
+
+			confirmation := network.Confirm{
+				Id:      thisElevator.Id,
+				PassWrd: msg.Id,
+			}
+
+			sendConfirmation_ch <- confirmation
+
 			updatedElev := elevatorMap[msg.Id]
 			updatedElev.State.OutOfService = msg.Obstructed
 			elevatorMap[msg.Id] = updatedElev
@@ -168,6 +182,7 @@ func Infobank(
 			requestUpdateToFSM_ch <- thisElevator.Requests
 
 		case <-periodicUpdate_ch:
+
 			msg := network.Periodic{
 				Id:       thisElevator.Id,
 				State:    thisElevator.State,

@@ -51,7 +51,7 @@ func FSM(elevatorInit_ch chan Elevator,
 			updateDiagnostics_ch <- *elevator
 
 		case <-timer_ch:
-			HandleDeparture(elevator, timer_ch)
+			handleDeparture(elevator, timer_ch)
 			stateToInfobank_ch <- elevator.State
 			updateDiagnostics_ch <- *elevator
 
@@ -97,7 +97,7 @@ func fsmNewRequests(e *Elevator, timer_ch chan bool) {
 	setAllLights(e)
 }
 
-func HandleDeparture(e *Elevator, timer_ch chan bool) {
+func handleDeparture(e *Elevator, timer_ch chan bool) {
 	if GetObstruction() && e.State.Behaviour == EB_DoorOpen {
 		go timer.Run_timer(3, timer_ch)
 		return

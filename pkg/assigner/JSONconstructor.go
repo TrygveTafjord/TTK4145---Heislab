@@ -26,10 +26,10 @@ func AssignHallRequestsSingle(assignerList []AssignerInput) map[string][4][2]boo
 
 	return HallRequestAssigner(JSON)
 }*/
-func AssignHallRequests(assignerList []AssignerInput) map[string][4][2]bool{
+func AssignHallRequests(assignerList []AssignerInput) map[string][4][2]bool {
 	if len(assignerList) == 1 {
 		return AssignHallRequestsSingle(assignerList)
-	}else{
+	} else {
 		return AssignHallRequestsMultiple(assignerList)
 	}
 }
@@ -37,7 +37,7 @@ func AssignHallRequests(assignerList []AssignerInput) map[string][4][2]bool{
 func AssignHallRequestsSingle(assignerList []AssignerInput) map[string][4][2]bool {
 
 	JSON := CreateJSON(assignerList...)
-	
+
 	return HallRequestAssigner(JSON)
 }
 
