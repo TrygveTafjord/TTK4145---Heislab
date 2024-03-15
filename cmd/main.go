@@ -3,7 +3,6 @@ package main
 import (
 	"fmt"
 	"net"
-	"os"
 	"os/exec"
 	"time"
 
@@ -18,11 +17,11 @@ const (
 	heartbeatSleep = 500
 )
 
-func startBackupProcess(port string) {
-	exec.Command("gnome-terminal", "--", "go", "run", "main.go", port).Run()
+func startBackupProcess() {
+	exec.Command("gnome-terminal", "--", "go", "run", "main.go").Run()
 }
 
-func primaryProcess(port string, udpSendAddr string) {
+func primaryProcess(udpSendAddr string) {
 	sendUDPAddr, err := net.ResolveUDPAddr("udp", udpSendAddr)
 	if err != nil {
 		fmt.Println(err)
@@ -115,7 +114,7 @@ func primaryProcess(port string, udpSendAddr string) {
 
 	go diagnostics.Diagnostics(updateDiagnostics_ch, obstructionDiagnoze_ch)
 
-	ID, err := network.LocalIP(port)
+	ID, err := network.LocalIP()
 
 	initialize.ElevatorInit(initInfobank_ch, initFSM_ch, initNetwork_ch, ID)
 
@@ -133,12 +132,8 @@ func primaryProcess(port string, udpSendAddr string) {
 func backupProcess() {
 	fmt.Printf("---------BACKUP PHASE---------\n")
 
-	args := os.Args
-	fmt.Println(args)
-	port := args[1]
-	fmt.Printf("PORT: %v", port)
-	udpReceiveAddr := ":" + port
-	udpSendAddr := "255.255.255.255" + udpReceiveAddr
+	udpReceiveAddr := "127.0.0.1:"
+	udpSendAddr := "127.0.0.1:"
 
 	receiveUDPAddr, err := net.ResolveUDPAddr("udp", udpReceiveAddr)
 	if err != nil {
@@ -154,11 +149,7 @@ func backupProcess() {
 
 	defer conn.Close()
 
-	elevator.Init("localhost:"+port, 4)
-
-	// if err != nil {
-	// 	fmt.Printf("could not get IP")
-	// }
+	elevator.Init("localhost:", 4)
 
 	for {
 		buffer := make([]byte, 1024)
@@ -170,9 +161,9 @@ func backupProcess() {
 		} else {
 			if e, ok := err.(net.Error); ok && e.Timeout() {
 				conn.Close()
-				startBackupProcess(port)
+				startBackupProcess()
 				fmt.Print(("I start primary process"))
-				primaryProcess(port, udpSendAddr)
+				primaryProcess(udpSendAddr)
 				return
 			} else {
 				fmt.Println("Error reading from UDP:", err)
