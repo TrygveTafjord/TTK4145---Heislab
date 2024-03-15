@@ -1,7 +1,6 @@
 package elevator
 
 import (
-	"fmt"
 	"time"
 
 	"project.com/pkg/timer"
@@ -48,16 +47,18 @@ func FSM(elevatorInit_ch chan Elevator,
 			if requestsBeforeNewFloor != elevator.Requests {
 				clearRequestToInfobank_ch <- getClearedRequests(requestsBeforeNewFloor, elevator.Requests)
 			}
+
 			updateDiagnostics_ch <- *elevator
 
 		case <-timer_ch:
-			HandleDeparture(elevator, timer_ch)
+			handleDeparture(elevator, timer_ch)
 			stateToInfobank_ch <- elevator.State
 			updateDiagnostics_ch <- *elevator
 
 		case obstruction := <-obstruction_ch:
 			if !obstruction && elevator.State.Behaviour == EB_DoorOpen {
 				go timer.Run_timer(3, timer_ch)
+
 				if elevator.State.OutOfService {
 					elevator.State.OutOfService = false
 					updateDiagnostics_ch <- *elevator
@@ -66,14 +67,37 @@ func FSM(elevatorInit_ch chan Elevator,
 			}
 
 		case <-obstructionDiagnose_ch:
-			fmt.Printf("FSM recieved msg from diagnoze!\n")
 			elevator.State.OutOfService = true
 			obstructedStateToInfobank_ch <- true
 		}
 	}
 }
 
-func HandleDeparture(e *Elevator, timer_ch chan bool) {
+func fsmNewRequests(e *Elevator, timer_ch chan bool) {
+	if e.State.Behaviour == EB_DoorOpen {
+		if requests_shouldClearImmediately(*e) {
+			requests_clearAtCurrentFloor(e)
+			go timer.Run_timer(3, timer_ch)
+			setAllLights(e)
+		}
+		return
+	}
+
+	e.State.Dirn, e.State.Behaviour = GetDirectionAndBehaviour(e)
+	switch e.State.Behaviour {
+
+	case EB_DoorOpen:
+		SetDoorOpenLamp(true)
+		go timer.Run_timer(3, timer_ch)
+		requests_clearAtCurrentFloor(e)
+
+	case EB_Moving:
+		SetMotorDirection(e.State.Dirn)
+	}
+	setAllLights(e)
+}
+
+func handleDeparture(e *Elevator, timer_ch chan bool) {
 	if GetObstruction() && e.State.Behaviour == EB_DoorOpen {
 		go timer.Run_timer(3, timer_ch)
 		return
@@ -105,37 +129,13 @@ func fsmOnFloorArrival(e *Elevator, newFloor int, timer_ch chan bool) {
 
 	if requestShouldStop(*e) {
 		SetMotorDirection(MD_Stop)
-		e.State.Dirn = MD_Stop // Ole added march 12, needed for re-init
+		e.State.Dirn = MD_Stop
 		SetDoorOpenLamp(true)
 		requests_clearAtCurrentFloor(e)
 		go timer.Run_timer(3, timer_ch)
 		e.State.Behaviour = EB_DoorOpen
 		setAllLights(e)
 	}
-}
-
-func fsmNewRequests(e *Elevator, timer_ch chan bool) {
-	if e.State.Behaviour == EB_DoorOpen {
-		if requests_shouldClearImmediately(*e) {
-			requests_clearAtCurrentFloor(e)
-			go timer.Run_timer(3, timer_ch)
-			setAllLights(e)
-		}
-		return
-	}
-
-	e.State.Dirn, e.State.Behaviour = GetDirectionAndBehaviour(e)
-	switch e.State.Behaviour {
-
-	case EB_DoorOpen:
-		SetDoorOpenLamp(true)
-		go timer.Run_timer(3, timer_ch)
-		requests_clearAtCurrentFloor(e)
-
-	case EB_Moving:
-		SetMotorDirection(e.State.Dirn)
-	}
-	setAllLights(e)
 }
 
 func setAllLights(e *Elevator) {
@@ -173,7 +173,5 @@ func getClearedRequests(oldRequests [N_FLOORS][N_BUTTONS]bool, newRequests [N_FL
 			}
 		}
 	}
-
 	return clearedRequests
-
 }

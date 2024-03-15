@@ -7,8 +7,6 @@ import (
 	"project.com/pkg/elevator"
 )
 
-//assuming: [up, down, cab] in the 4x3 matrix that is requestst
-
 func AssignHallRequests(assignerList []AssignerInput) map[string][4][2]bool {
 	JSON, masterJSONMap := CreateJSON(assignerList...)
 	return HallRequestAssigner(JSON, masterJSONMap)

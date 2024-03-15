@@ -9,12 +9,16 @@ func Network(
 	initialize_ch chan string,
 	newRequestToInfobank_ch chan NewRequest,
 	newRequestFromInfobank_ch chan NewRequest,
+	confirmationToInfobank_ch chan Confirm,
+	confirmationFromInfobank_ch chan Confirm,
 	obstructedToInfobank_ch chan Obstructed,
 	obstructedFromInfobank_ch chan Obstructed,
 	stateUpdateToInfobank_ch chan StateUpdate,
 	stateUpdateFromInfobank_ch chan StateUpdate,
 	requestClearedToInfobank_ch chan RequestCleared,
 	requestClearedFromInfobank_ch chan RequestCleared,
+	periodicInfobankToNetwork_ch chan Periodic,
+	periodicNetworkToInfobank_ch chan Periodic,
 	peerUpdate_ch chan PeerUpdate) {
 
 	id := <-initialize_ch
@@ -25,20 +29,24 @@ func Network(
 
 	newRequestTx_ch := make(chan NewRequest, BUFF_SIZE)
 	newRequestRx_ch := make(chan NewRequest, BUFF_SIZE)
+	confirmRequestTx_ch := make(chan Confirm, BUFF_SIZE)
+	confirmRequestRx_ch := make(chan Confirm, BUFF_SIZE)
 	obstructedTx_ch := make(chan Obstructed, BUFF_SIZE)
 	obstructedRx_ch := make(chan Obstructed, BUFF_SIZE)
 	stateUpdateTx_ch := make(chan StateUpdate, BUFF_SIZE)
 	stateUpdateRx_ch := make(chan StateUpdate, BUFF_SIZE)
 	requestClearedTx_ch := make(chan RequestCleared, BUFF_SIZE)
 	requestClearedRx_ch := make(chan RequestCleared, BUFF_SIZE)
-
-	peerUpdateCh := make(chan PeerUpdate, 5)
+	periodicTx_ch := make(chan Periodic, BUFF_SIZE)
+	periodicRx_ch := make(chan Periodic, BUFF_SIZE)
+  peerUpdateCh := make(chan PeerUpdate, 5)
 	peerTxEnable := make(chan bool, 5)
 
-	go TransmitterPeers(15656, id, peerTxEnable)
-	go ReceiverPeers(15656, peerUpdateCh)
-	go TransmitterBcast(20034, newRequestTx_ch, obstructedTx_ch, stateUpdateTx_ch, requestClearedTx_ch)
-	go ReceiverBcast(20034, newRequestRx_ch, obstructedRx_ch, stateUpdateRx_ch, requestClearedRx_ch)
+	go TransmitterPeers(15653, id, peerTxEnable)
+	go ReceiverPeers(15653, peerUpdateCh)
+	go TransmitterBcast(20029, newRequestTx_ch, confirmRequestTx_ch, obstructedTx_ch, stateUpdateTx_ch, requestClearedTx_ch, periodicTx_ch)
+	go ReceiverBcast(20029, newRequestRx_ch, confirmRequestRx_ch, obstructedRx_ch, stateUpdateRx_ch, requestClearedRx_ch, periodicRx_ch)
+
 
 	for {
 		select {
@@ -77,6 +85,21 @@ func Network(
 			if msg.Id != id {
 				obstructedToInfobank_ch <- msg
 			}
+
+		case msg := <-confirmRequestRx_ch:
+			if msg.Id != id {
+				confirmationToInfobank_ch <- msg
+			}
+		case msg := <-confirmationFromInfobank_ch:
+			confirmRequestTx_ch <- msg
+
+		case msg := <-periodicRx_ch:
+			if msg.Id != id {
+				periodicNetworkToInfobank_ch <- msg
+			}
+		case msg := <-periodicInfobankToNetwork_ch:
+			periodicTx_ch <- msg
+
 		}
 	}
 }

@@ -9,8 +9,6 @@ import (
 
 const bufSize = 1024
 
-// Encodes received values from `chans` into type-tagged JSON, then broadcasts
-// it on `port`
 func TransmitterBcast(port int, chans ...interface{}) {
 	checkArgs(chans...)
 	typeNames := make([]string, len(chans))
