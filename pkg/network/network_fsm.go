@@ -39,14 +39,14 @@ func Network(
 	requestClearedRx_ch := make(chan RequestCleared, BUFF_SIZE)
 	periodicTx_ch := make(chan Periodic, BUFF_SIZE)
 	periodicRx_ch := make(chan Periodic, BUFF_SIZE)
-
-	peerUpdateCh := make(chan PeerUpdate, 5)
+  peerUpdateCh := make(chan PeerUpdate, 5)
 	peerTxEnable := make(chan bool, 5)
 
 	go TransmitterPeers(15653, id, peerTxEnable)
 	go ReceiverPeers(15653, peerUpdateCh)
 	go TransmitterBcast(20029, newRequestTx_ch, confirmRequestTx_ch, obstructedTx_ch, stateUpdateTx_ch, requestClearedTx_ch, periodicTx_ch)
 	go ReceiverBcast(20029, newRequestRx_ch, confirmRequestRx_ch, obstructedRx_ch, stateUpdateRx_ch, requestClearedRx_ch, periodicRx_ch)
+
 
 	for {
 		select {
@@ -85,6 +85,7 @@ func Network(
 			if msg.Id != id {
 				obstructedToInfobank_ch <- msg
 			}
+
 		case msg := <-confirmRequestRx_ch:
 			if msg.Id != id {
 				confirmationToInfobank_ch <- msg
@@ -98,6 +99,7 @@ func Network(
 			}
 		case msg := <-periodicInfobankToNetwork_ch:
 			periodicTx_ch <- msg
+
 		}
 	}
 }

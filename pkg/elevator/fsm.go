@@ -153,6 +153,17 @@ func PeriodicCheck(selfCheck_ch chan bool) {
 	}
 }
 
+func Check_request(elevator Elevator) bool {
+	for i := 0; i < N_FLOORS; i++ {
+		for j := 0; j < N_BUTTONS; j++ {
+			if elevator.Requests[i][j] {
+				return true
+			}
+		}
+	}
+	return false
+}
+
 func getClearedRequests(oldRequests [N_FLOORS][N_BUTTONS]bool, newRequests [N_FLOORS][N_BUTTONS]bool) []ButtonEvent {
 	var clearedRequests []ButtonEvent
 	for i := 0; i < N_FLOORS; i++ {
