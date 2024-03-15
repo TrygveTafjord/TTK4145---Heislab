@@ -19,8 +19,8 @@ func Infobank(
 	obstructionFromFSM_ch 			chan bool,
 	newRequestToNetwork_ch 			chan network.NewRequest,
 	newRequestFromNetwork_ch 		chan network.NewRequest,	
-	sendRequestConfirmation_ch		chan network.Confirm,
-	recieveRequestConfirmation_ch   chan network.Confirm,
+	sendConfirmation_ch				chan network.Confirm,
+	recieveConfirmation_ch   		chan network.Confirm,
 	obstructedToNetwork_ch 			chan network.Obstructed,
 	obstructedFromNetwork_ch 		chan network.Obstructed,
 	stateUpdateToNetwork_ch 		chan network.StateUpdate,
@@ -45,7 +45,8 @@ func Infobank(
 	for {
 		select {
 		case buttonEvent := <-button_ch:
-			if !confirmNewAssignment(newRequestToNetwork_ch, recieveRequestConfirmation_ch, buttonEvent, len(elevatorMap), thisElevator.Id) {
+			
+			if !confirmNewAssignment(newRequestToNetwork_ch, recieveConfirmation_ch, buttonEvent, len(elevatorMap), thisElevator.Id) {
 				fmt.Print("Not Confirmed! \n")
 				break
 			}
@@ -61,6 +62,7 @@ func Infobank(
 			requestUpdateToFSM_ch <- thisElevator.Requests
 
 		case obstructed := <- obstructionFromFSM_ch:
+			//Sett opp confirmation?
 			thisElevator.State.Obstructed = obstructed
 			evaluateRequests(elevatorMap, &thisElevator)
 			msg := network.Obstructed { 
@@ -90,21 +92,17 @@ func Infobank(
 			thisElevator.Lights[clearedRequests[0].Floor][elevator.BT_Cab] = false
 			
 			elevatorMap[thisElevator.Id] = thisElevator
-
-			msg := network.RequestCleared { 
-				Id:		  		  thisElevator.Id,
-				ClearedRequests:  clearedRequests,
+			if !confirmRemovedAssignments(requestClearedToNetwork_ch, recieveConfirmation_ch, clearedRequests, len(elevatorMap),thisElevator.Id){
+				fmt.Printf("confirmed removal")
 			}
-			requestClearedToNetwork_ch <- msg
 			
 		case msg := <-newRequestFromNetwork_ch:
-			//Bryte opp?
-			//msg.PassWrd != id + fmt.Sprint(buttonEvent.Button) + fmt.Sprint(buttonEvent.Floor)
+
 			confirmation := network.Confirm {
 				Id:			thisElevator.Id,
 				PassWrd:    msg.Id + fmt.Sprint(msg.Request.Button) + fmt.Sprint(msg.Request.Floor),
 			}
-			sendRequestConfirmation_ch <- confirmation 
+			sendConfirmation_ch <- confirmation 
 
 			updatedElev := elevatorMap[msg.Id]
 			updatedElev.Requests[msg.Request.Floor][msg.Request.Button] = true
@@ -127,8 +125,12 @@ func Infobank(
 			elevatorMap[msg.Id] = updatedElev
 		
 		case msg := <- requestClearedFromNetwork_ch:
-			fmt.Printf("recieved cleared request \n")
 
+			confirmation := network.Confirm {
+				Id:			thisElevator.Id,
+				PassWrd:    msg.Id + fmt.Sprint(msg.ClearedRequests[0].Button) + fmt.Sprint(msg.ClearedRequests[0].Floor),
+			} 	
+			sendConfirmation_ch <- confirmation 
 			updatedElev := elevatorMap[msg.Id]
 			for _, requests := range msg.ClearedRequests {
 				updatedElev.Requests[requests.Floor][requests.Button] = false
@@ -138,10 +140,8 @@ func Infobank(
 			lightsUpdateToFSM_ch <- thisElevator.Lights
 		
 		case msg := <- obstructedFromNetwork_ch:
-			fmt.Printf("recieved obstructed in infobank from the network! \n")
 			updatedElev := elevatorMap[msg.Id]
 			updatedElev.State.Obstructed = msg.Obstructed 
-			fmt.Printf("Recieved obstruction value: %v \n", msg.Obstructed)
 			elevatorMap[msg.Id] = updatedElev
 
 			assignerList := createAssignerInput(elevatorMap)
@@ -170,40 +170,6 @@ func Infobank(
 
 			setLightMatrix(hallRequestsMap, &thisElevator)
 			requestUpdateToFSM_ch <- thisElevator.Requests
-
-		// 	case network.StateUpdate:
-		// 		// Midlertidig løsning for packetloss ved slukking av lys, dette kan være kilde til bus, men funker fett nå (merk at vi alltid setter order counter til å være det vi får inn)
-		// 		if Msg.Elevator != elevatorMap[Msg.Elevator.Id] {
-		// 			handleOrderCompleted(elevatorMap, &Msg.Elevator, &thisElevator)
-		// 			toFSM_ch <- thisElevator
-		// 		}
-		// 		elevatorMap[Msg.Elevator.Id] = Msg.Elevator
-
-		// 	case network.PeriodicMsg:
-		// 		SyncronizeAll(thisElevator, elevatorMap, Msg.Elevator, button_ch)
-
-		// 	case network.ObstructedMsg:
-
-		// 		handleNewOrder(elevatorMap, &Msg.Elevator, &thisElevator)
-
-		// 		toFSM_ch <- thisElevator
-		// 	}
-
-		// case <-periodicUpdate_ch:
-		// 	msg := network.Msg{
-		// 		MsgType:  network.PeriodicMsg,
-		// 		Elevator: thisElevator,
-		// 	}
-		// 	networkUpdateTx_ch <- msg
-
-		// case peerUpdate := <-peerUpdate_ch:
-		// 	if len(peerUpdate.Lost) != 0 {
-		// 		handlePeerupdate(peerUpdate, &thisElevator, &elevatorMap, &hallRequestsMap)
-		// 		hallRequestsMap := hallrequestassigner.AssignHallRequests(elevatorMap)
-		// 		setLightMatrix(hallRequestsMap, &thisElevator)
-		// 		thisElevator.Requests = elevatorMap[thisElevator.Id].Requests
-		// 		toFSM_ch <- thisElevator
-		// 	}
 		}
 	}
 }
