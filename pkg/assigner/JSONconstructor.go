@@ -8,13 +8,13 @@ import (
 )
 
 //assuming: [up, down, cab] in the 4x3 matrix that is requestst
-
-func AssignHallRequests(assignerList []AssignerInput) map[string][4][2]bool {
+//LA STÅ!!!
+/*func AssignHallRequests(assignerList []AssignerInput) map[string][4][2]bool {
 	/*if len(assignerList) == 1 {
 		return AssignHallRequestsSingle(assignerList)
 	}else{
 		return AssignHallRequestsMultiple(assignerList)
-	}*/
+	}
 
 	JSON := CreateJSON(assignerList...)
 	return HallRequestAssigner(JSON)
@@ -24,6 +24,20 @@ func AssignHallRequestsSingle(assignerList []AssignerInput) map[string][4][2]boo
 
 	JSON := CreateJSON(assignerList...)
 
+	return HallRequestAssigner(JSON)
+}*/
+func AssignHallRequests(assignerList []AssignerInput) map[string][4][2]bool{
+	if len(assignerList) == 1 {
+		return AssignHallRequestsSingle(assignerList)
+	}else{
+		return AssignHallRequestsMultiple(assignerList)
+	}
+}
+
+func AssignHallRequestsSingle(assignerList []AssignerInput) map[string][4][2]bool {
+
+	JSON := CreateJSON(assignerList...)
+	
 	return HallRequestAssigner(JSON)
 }
 

@@ -50,6 +50,8 @@ func FSM(elevatorInit_ch chan Elevator,
 			if requestsBeforeNewFloor != elevator.Requests {
 				clearRequestToInfobank_ch <- getClearedRequests(requestsBeforeNewFloor, elevator.Requests)
 			}
+
+
 			updateDiagnostics_ch <- *elevator
 		
 		case <-timer_ch:
@@ -60,6 +62,7 @@ func FSM(elevatorInit_ch chan Elevator,
 		case obstruction := <-obstruction_ch:
 			if !obstruction && elevator.State.Behaviour == EB_DoorOpen {
 				go timer.Run_timer(3, timer_ch)
+
 				if elevator.State.OutOfService {
 					elevator.State.OutOfService = false
 					updateDiagnostics_ch <- *elevator
