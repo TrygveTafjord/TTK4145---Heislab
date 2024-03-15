@@ -9,6 +9,8 @@ func Network(
 	initialize_ch					chan string,	
 	newRequestToInfobank_ch 		chan NewRequest,
 	newRequestFromInfobank_ch 		chan NewRequest,
+	confirmationToInfobank_ch		chan Confirm,
+	confirmationFromInfobank_ch		chan Confirm,
 	obstructedToInfobank_ch 		chan Obstructed,
 	obstructedFromInfobank_ch 		chan Obstructed,
 	stateUpdateToInfobank_ch 		chan StateUpdate,
@@ -24,6 +26,8 @@ func Network(
 
 	newRequestTx_ch 	:= make(chan NewRequest, BUFF_SIZE)
 	newRequestRx_ch 	:= make(chan NewRequest, BUFF_SIZE)
+	confirmRequestTx_ch := make(chan Confirm, BUFF_SIZE)
+	confirmRequestRx_ch := make(chan Confirm, BUFF_SIZE)
 	obstructedTx_ch 	:= make(chan Obstructed, BUFF_SIZE)
 	obstructedRx_ch 	:= make(chan Obstructed, BUFF_SIZE)
 	stateUpdateTx_ch 	:= make(chan StateUpdate, BUFF_SIZE)
@@ -36,8 +40,8 @@ func Network(
 
 	go TransmitterPeers(15653, id, peerTxEnable)
 	go ReceiverPeers(15653, peerUpdateCh)
-	go TransmitterBcast(20029, newRequestTx_ch, obstructedTx_ch, stateUpdateTx_ch, requestClearedTx_ch)
-	go ReceiverBcast(20029, newRequestRx_ch, obstructedRx_ch, stateUpdateRx_ch, requestClearedRx_ch)
+	go TransmitterBcast(20029, newRequestTx_ch, confirmRequestTx_ch, obstructedTx_ch, stateUpdateTx_ch, requestClearedTx_ch)
+	go ReceiverBcast(20029, newRequestRx_ch, confirmRequestRx_ch, obstructedRx_ch, stateUpdateRx_ch, requestClearedRx_ch)
 
 	for {
 		select {
@@ -52,7 +56,6 @@ func Network(
 			if msg.Id != id {
 				newRequestToInfobank_ch <- msg
 			}
-
 		case msg := <- newRequestFromInfobank_ch:
 			newRequestTx_ch <- msg
 		
@@ -70,8 +73,19 @@ func Network(
 			if msg.Id != id {
 				requestClearedToInfobank_ch <- msg
 			}
-		}
-		
+		case msg := <- obstructedFromInfobank_ch:
+			obstructedTx_ch <- msg
 
+		case msg := <- obstructedRx_ch:
+			if msg.Id != id {
+				obstructedToInfobank_ch <- msg
+			}
+		case msg := <- confirmRequestRx_ch:
+			if msg.Id != id {
+			confirmationToInfobank_ch <- msg
+			}
+		case msg:= <- confirmationFromInfobank_ch:
+			confirmRequestTx_ch <- msg
+			} 
 	}
 }

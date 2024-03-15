@@ -8,10 +8,9 @@ const (
 type ElevatorBehaviour int
 
 const (
-	EB_Idle ElevatorBehaviour = iota
+	EB_Idle 	ElevatorBehaviour = iota
 	EB_DoorOpen
 	EB_Moving
-	EB_Stopped
 )
 
 type Elevator struct {
@@ -26,13 +25,3 @@ type State struct {
 	Behaviour  ElevatorBehaviour
 	Obstructed bool
 }
-
-
-type Diagnose int
-
-const (
-	Healthy Diagnose = iota
-	Obstructed
-	Problem
-	Unchanged
-)
