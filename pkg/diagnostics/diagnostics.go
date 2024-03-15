@@ -22,7 +22,7 @@ func Diagnostics(updateFromFSM_ch chan elevator.Elevator, obstructionDiagnose_ch
 			currentState = updatedElevator
 
 		case <-selfCheck_ch:
-			if hasRequest(currentState) && currentState.State == prevState.State {
+			if hasRequest(currentState) && currentState.State == prevState.State && !currentState.State.OutOfService {
 				timeInSameStateWhileOrders += 1
 			} else {
 				timeInSameStateWhileOrders = 0
@@ -31,20 +31,12 @@ func Diagnostics(updateFromFSM_ch chan elevator.Elevator, obstructionDiagnose_ch
 
 			switch diagnose {
 
-			case Healthy:
-				if currentState.State.OutOfService {
-					currentState.State.OutOfService = false
-					obstructionDiagnose_ch <- currentState.State.OutOfService
-				}
-
 			case Obstructed:
-				if !currentState.State.OutOfService {
-					currentState.State.OutOfService = true
-					obstructionDiagnose_ch <- currentState.State.OutOfService
-				}
+				obstructionDiagnose_ch <- true
 
 			case Reinitialize:
 				os.Exit(1)
+
 			}
 			prevState = currentState
 		}

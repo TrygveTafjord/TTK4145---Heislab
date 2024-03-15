@@ -73,13 +73,13 @@ func Infobank(
 
 		case obstructed := <-obstructionFromFSM_ch:
 			if !obstructed {
-				removeHallCalls(&thisElevator)
 				requestUpdateToFSM_ch <- thisElevator.Requests
 			}
 
 			thisElevator.State.OutOfService = obstructed
-			evaluateRequests(&elevatorMap, &thisElevator)
-
+			if len(elevatorMap) > 1 {
+				evaluateRequests(&elevatorMap, &thisElevator)
+			}
 			msg := network.Obstructed{
 				Id:         thisElevator.Id,
 				Obstructed: obstructed,
@@ -229,9 +229,9 @@ func evaluateRequests(elevatorMap *map[string]ElevatorInfo, e *ElevatorInfo) {
 	assignmentsMap := transferOrders(ordersToBeCleared, aliveElevators)
 	assignerList := createAssignerInput(assignmentsMap)
 	hallRequestsMap := assigner.AssignHallRequests(assignerList)
-	
+
 	for id, requests := range hallRequestsMap {
-		
+
 		tempElev := (*elevatorMap)[id]
 		for i := 0; i < elevator.N_FLOORS; i++ {
 			for j := 0; j < elevator.N_BUTTONS-1; j++ {
@@ -276,6 +276,7 @@ func handleOrderCompleted(elevatorMap map[string]ElevatorInfo, recievedElevator 
 func removeDeadElevators(elevatorMap map[string]ElevatorInfo) (map[string]ElevatorInfo, [elevator.N_FLOORS][elevator.N_BUTTONS - 1]bool) {
 	var ordersToBeTransferred [elevator.N_FLOORS][elevator.N_BUTTONS - 1]bool
 	assignmentsMap := make(map[string]ElevatorInfo)
+
 	for ID, elev := range elevatorMap {
 		if elev.State.OutOfService {
 			ordersToBeTransferred = generateHallCalls(elev.Requests)

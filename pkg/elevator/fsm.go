@@ -66,7 +66,7 @@ func FSM(elevatorInit_ch chan Elevator,
 			}
 
 		case <-obstructionDiagnose_ch:
-			fmt.Printf("FSM recieved obstructed from diagnoze!\n")
+			fmt.Printf("FSM recieved msg from diagnoze!\n")
 			elevator.State.OutOfService = true
 			obstructedStateToInfobank_ch <- true
 		}
@@ -84,7 +84,6 @@ func HandleDeparture(e *Elevator, timer_ch chan bool) {
 	switch e.State.Behaviour {
 
 	case EB_DoorOpen:
-		fmt.Printf("DET SKJEDDE HANDLE DEPARTURE, HVAFAEN \n")
 		SetDoorOpenLamp(true)
 		requests_clearAtCurrentFloor(e)
 		go timer.Run_timer(3, timer_ch)

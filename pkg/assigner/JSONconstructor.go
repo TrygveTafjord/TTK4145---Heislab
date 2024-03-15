@@ -10,11 +10,11 @@ import (
 //assuming: [up, down, cab] in the 4x3 matrix that is requestst
 
 func AssignHallRequests(assignerList []AssignerInput) map[string][4][2]bool {
-	JSON := CreateJSON(assignerList...)
-	return HallRequestAssigner(JSON)
+	JSON, masterJSONMap := CreateJSON(assignerList...)
+	return HallRequestAssigner(JSON, masterJSONMap)
 }
 
-func CreateJSON(elevators ...AssignerInput) []byte {
+func CreateJSON(elevators ...AssignerInput) ([]byte, map[string]interface{}) {
 	hallRequests := generateHallRequests(elevators)
 	auxJSONMap := make(map[string]interface{})
 
@@ -65,10 +65,10 @@ func CreateJSON(elevators ...AssignerInput) []byte {
 	JSON, err := json.MarshalIndent(masterJSONMap, "", "    ")
 	if err != nil {
 		fmt.Printf("JSON marshaling failed: %s", err)
-		return nil
+		return nil, masterJSONMap
 	}
 
-	return JSON
+	return JSON, masterJSONMap
 }
 
 func generateHallRequests(elevators []AssignerInput) (resultMatrix [4][2]bool) {
