@@ -1,9 +1,6 @@
 package elevator
 
 import (
-	//"fmt"
-	//"fmt"
-
 	"fmt"
 	"time"
 
@@ -42,16 +39,19 @@ func FSM(elevatorInit_ch chan Elevator,
 
 		case lights := <-lightUpdate_ch:
 			elevator.Lights = lights
+			fmt.Printf("Det kommer en light update, og den er: %v! \n \n", lights)
 			setAllLights(elevator)
 
 		case newFloor := <-floorSensor_ch:
-			
+			fmt.Print(" \n \n Floor sensor spoke! \n \n")
 			requestsBeforeNewFloor := elevator.Requests
 			fsmOnFloorArrival(elevator, newFloor, timer_ch)
 			stateToInfobank_ch <- elevator.State
-			if requestsBeforeNewFloor != elevator.Requests{
+			if requestsBeforeNewFloor != elevator.Requests {
 				clearRequestToInfobank_ch <- getClearedRequests(requestsBeforeNewFloor, elevator.Requests)
 			}
+
+
 			updateDiagnostics_ch <- *elevator
 		
 		case <-timer_ch:
@@ -62,6 +62,7 @@ func FSM(elevatorInit_ch chan Elevator,
 		case obstruction := <-obstruction_ch:
 			if !obstruction && elevator.State.Behaviour == EB_DoorOpen {
 				go timer.Run_timer(3, timer_ch)
+
 				if elevator.State.Obstructed {
 					elevator.State.Obstructed = false
 					updateDiagnostics_ch <- *elevator
@@ -110,7 +111,7 @@ func fsmOnFloorArrival(e *Elevator, newFloor int, timer_ch chan bool) {
 
 	if requestShouldStop(*e) {
 		SetMotorDirection(MD_Stop)
-			//e.Dirn = MD_Stop // Ole added march 12, needed for re-init
+		e.State.Dirn = MD_Stop // Ole added march 12, needed for re-init
 		SetDoorOpenLamp(true)
 		requests_clearAtCurrentFloor(e)
 		go timer.Run_timer(3, timer_ch)
@@ -159,7 +160,7 @@ func PeriodicCheck(selfCheck_ch chan bool) {
 }
 
 
-func getClearedRequests(oldRequests [N_FLOORS][N_BUTTONS]bool, newRequests [N_FLOORS][N_BUTTONS]bool) []ButtonEvent{
+func getClearedRequests(oldRequests [N_FLOORS][N_BUTTONS]bool, newRequests [N_FLOORS][N_BUTTONS]bool) []ButtonEvent {
 	var clearedRequests []ButtonEvent
 	for i := 0; i < N_FLOORS; i++ {
 		for j := 0; j < N_BUTTONS; j++ {

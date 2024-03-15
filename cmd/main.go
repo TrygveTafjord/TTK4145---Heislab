@@ -19,11 +19,10 @@ const (
 )
 
 func startBackupProcess(port string) {
-	fmt.Print("I get here")
 	exec.Command("gnome-terminal", "--", "go", "run", "main.go", port).Run()
 }
 
-func primaryProcess(lastID string, udpSendAddr string) {
+func primaryProcess(port string, udpSendAddr string) {
 	sendUDPAddr, err := net.ResolveUDPAddr("udp", udpSendAddr)
 	if err != nil {
 		fmt.Println(err)
@@ -96,9 +95,9 @@ func primaryProcess(lastID string, udpSendAddr string) {
 	go network.Network(initNetwork, requestNetworkToInfobank_ch, requestInfobankToNetwork_ch, recieveRequestConfirmation_ch, sendRequestConfirmation_ch, obstructedNetworkToInfobank_ch, obstructedInfobankToNetwork_ch, stateNetworkToInfobank_ch, stateInfobankToNetwork_ch, clearedNetworkToInfobank_ch, clearedInfobankToNetwork_ch, peerUpdate_ch)
 	go diagnostics.Diagnostics(updateDiagnostics_ch, obstructionDiagnoze_ch)
 
-	ID, err := network.LocalIP()
+	ID, err := network.LocalIP(port)
 
-	initialize.ElevatorInit(initInfobank_ch, initFSM_ch, initNetwork, lastID, ID)
+	initialize.ElevatorInit(initInfobank_ch, initFSM_ch, initNetwork, ID)
 
 	for {
 		msg := ID
@@ -142,20 +141,18 @@ func backupProcess() {
 	// 	fmt.Printf("could not get IP")
 	// }
 
-	var lastID string
-
 	for {
 		buffer := make([]byte, 1024)
 		conn.SetReadDeadline(time.Now().Add(heartbeatSleep * 5 * time.Millisecond))
-		n, _, err := conn.ReadFromUDP(buffer)
+		_, _, err := conn.ReadFromUDP(buffer)
 
 		if err == nil {
-			lastID = string(buffer[:n])
+			fmt.Print("on")
 		} else {
 			if e, ok := err.(net.Error); ok && e.Timeout() {
 				conn.Close()
 				startBackupProcess(port)
-				primaryProcess(lastID, udpSendAddr)
+				primaryProcess(port, udpSendAddr)
 				return
 			} else {
 				fmt.Println("Error reading from UDP:", err)

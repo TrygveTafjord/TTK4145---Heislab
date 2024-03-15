@@ -2,8 +2,12 @@ package initialize
 
 import (
 	// "encoding/csv"
-	// "fmt"
-	// "os"
+	"encoding/csv"
+	"fmt"
+	"os"
+	"strconv"
+	"strings"
+
 	// "strconv"
 	// "strings"
 
@@ -11,16 +15,78 @@ import (
 	"project.com/pkg/infobank"
 )
 
-func ElevatorInit(elevInitInfobank_ch chan infobank.ElevatorInfo, elevInitFSM_ch chan elevator.Elevator, networkInit_ch chan string, lastID string, ID string) {
+func ElevatorInit(elevInitInfobank_ch chan infobank.ElevatorInfo,
+	elevInitFSM_ch chan elevator.Elevator,
+	networkInit_ch chan string,
+	ID string,
+) {
+	var FSMelevator elevator.Elevator
+	var IBelevator infobank.ElevatorInfo
+
+	//Is there a dead process?
+	_, err := os.Open(ID)
+
+	if err != nil {
+		FSMelevator, IBelevator = initDefaultObjects(ID)
+
+	} else {
+		FSMelevator, IBelevator = initReplacementObjects(ID)
+	}
+
+	networkInit_ch <- ID
+	elevInitFSM_ch <- FSMelevator
+	elevInitInfobank_ch <- IBelevator
+
+}
+
+func readCSV(previousID string) ([]bool, int, int, elevator.ElevatorBehaviour, int) {
+	file, err := os.Open(previousID)
+	if err != nil {
+		fmt.Printf("Failed to open file in READ: %v\n", err)
+	}
+	defer file.Close()
+
+	var returnSlice []bool
+
+	csvReader := csv.NewReader(file)
+	records, _ := csvReader.ReadAll()
+
+	for i := 0; i < 4; i++ {
+		if records[i][0] == "true" {
+			returnSlice = append(returnSlice, true)
+		} else {
+			returnSlice = append(returnSlice, false)
+		}
+	}
+
+	orderClearCounterString := records[4][0]
+	OCC := strings.SplitN(orderClearCounterString, ":", 2)
+	orderClearCounter, _ := strconv.Atoi(OCC[1])
+
+	orderCounterString := records[5][0]
+	OC := strings.SplitN(orderCounterString, ":", 2)
+	orderCounter, _ := strconv.Atoi(OC[1])
+
+	behaviourString := records[6][0]
+	BH := strings.SplitN(behaviourString, ":", 2)
+	index, _ := strconv.Atoi(BH[1])
+	behaviour := elevator.ElevatorBehaviour(index)
+
+	directionString := records[7][0]
+	DIR := strings.SplitN(directionString, ":", 2)
+	direction, _ := strconv.Atoi(DIR[1])
+
+	return returnSlice, orderClearCounter, orderCounter, behaviour, direction
+}
+
+func initDefaultObjects(ID string) (elevator.Elevator, infobank.ElevatorInfo) {
 	var e elevator.Elevator
 	var e_IB infobank.ElevatorInfo
-	//e.State.Standstill = 0
-	//e.Id = ID
-	//var cabCalls []bool
-	//var direction int
+	file, err := os.Create(ID)
+	if err != nil {
+		fmt.Printf("Failed to create file in initialize: %v \n \n", err)
+	}
 
-	//reset buttons
-	
 	for floor := 0; floor < 4; floor++ {
 		for btn := 0; btn < 3; btn++ {
 			elevator.SetButtonLamp(elevator.ButtonType(btn), floor, false)
@@ -30,8 +96,6 @@ func ElevatorInit(elevInitInfobank_ch chan infobank.ElevatorInfo, elevInitFSM_ch
 			e_IB.Lights[floor][btn] = false
 		}
 	}
-	//e.OrderClearedCounter = 0
-	//e.OrderCounter = 0
 
 	floor := elevator.GetFloor()
 	if floor == -1 {
@@ -44,114 +108,57 @@ func ElevatorInit(elevInitInfobank_ch chan infobank.ElevatorInfo, elevInitFSM_ch
 			}
 		}
 	}
-	e.State.Floor = floor
-	e_IB.State.Floor = floor
-	e.State.Behaviour = elevator.EB_Idle
-	e_IB.State.Behaviour = elevator.EB_Idle
-	e.State.Obstructed = false
-	e_IB.State.Obstructed = false
-
+	e.State.Floor, e_IB.State.Floor = floor, floor
+	e.State.Behaviour, e_IB.State.Behaviour = elevator.EB_Idle, elevator.EB_Idle
+	e.State.Obstructed, e_IB.State.Obstructed = false, false
 	e_IB.Id = ID
 	e_IB.OrderClearedCounter = 0
 	e_IB.OrderCounter = 0
-
-	networkInit_ch <- ID
-	elevInitFSM_ch <- e
-	elevInitInfobank_ch <- e_IB
-
-	// } else {
-
-	// 	cabCalls, e.OrderClearedCounter, e.OrderCounter, e.Behaviour, direction = readCSV(lastID)
-
-	// 	for floor := 0; floor < 4; floor++ {
-	// 		for btn := 0; btn < 2; btn++ {
-	// 			SetButtonLamp(ButtonType(btn), floor, false)
-	// 		}
-	// 		SetButtonLamp(ButtonType(BT_Cab), floor, cabCalls[floor])
-	// 		e.Requests[floor][BT_Cab] = cabCalls[floor]
-	// 		e.Lights[floor][BT_Cab] = cabCalls[floor]
-	// 	}
-	// }
-
-	// switch direction {
-    // case 1:
-	// 	e.Dirn = MD_Up
-    // case -1:
-    //     e.Dirn = MD_Down
-    // default:
-    //     e.Dirn = MD_Stop
-	// }
-
-	// floor := GetFloor()
-	// if floor == -1 {
-	// 	SetMotorDirection(e.Dirn)
-	// 	for floor == -1 {
-	// 		floor = GetFloor()
-	// 		if floor != (-1) {
-	// 			SetMotorDirection(MD_Stop)
-	// 			break
-	// 		}
-	// 	}
-	// }
-	// e.Floor = floor
-	// e.OrderCounter--
-	// elevInitFSM_ch <- e
-	// e.OrderCounter++
-	// toFSM_ch <- e
+	file.Close()
+	return e, e_IB
 }
 
-// func readCSV(previousID string) ([]bool, int, int, ElevatorBehaviour, int) {
-// 	file, err := os.Open(previousID)
-// 	if err != nil {
-// 		fmt.Printf("Failed to open file: %v\n", err)
-// 	}
-// 	defer file.Close()
+func initReplacementObjects(ID string) (elevator.Elevator, infobank.ElevatorInfo) {
+	fmt.Printf("\n \n \n ---------REINIT-------- \n \n \n ")
+	var cabCalls []bool
+	var direction int
+	var e elevator.Elevator
+	var e_IB infobank.ElevatorInfo
 
-// 	var returnSlice []bool
+	cabCalls, e_IB.OrderClearedCounter, e_IB.OrderCounter, e.State.Behaviour, direction = readCSV(ID)
 
-// 	csvReader := csv.NewReader(file)
-// 	records, _ := csvReader.ReadAll()
+	for floor := 0; floor < 4; floor++ {
+		for btn := 0; btn < 2; btn++ {
+			elevator.SetButtonLamp(elevator.ButtonType(btn), floor, false)
+		}
+		e_IB.Requests[floor][elevator.BT_Cab] = cabCalls[floor]
+		elevator.SetButtonLamp(elevator.ButtonType(elevator.BT_Cab), floor, cabCalls[floor])
+	}
 
-// 	for i := 0; i < 4; i++ {
-// 		if records[i][0] == "true" {
-// 			returnSlice = append(returnSlice, true)
-// 		} else {
-// 			returnSlice = append(returnSlice, false)
-// 		}
-// 	}
+	switch direction {
+	case 1:
+		e.State.Dirn = elevator.MD_Up
+		e_IB.State.Dirn = elevator.MD_Up
+	case -1:
+		e.State.Dirn = elevator.MD_Down
+		e_IB.State.Dirn = elevator.MD_Down
+	default:
+		e.State.Dirn = elevator.MD_Stop
+		e_IB.State.Dirn = elevator.MD_Stop
+	}
 
-// 	orderClearCounterString := records[4][0]
-// 	OCC := strings.SplitN(orderClearCounterString, ":", 2)
-// 	orderClearCounter, _ := strconv.Atoi(OCC[1])
-
-// 	orderCounterString := records[5][0]
-// 	OC := strings.SplitN(orderCounterString, ":", 2)
-// 	orderCounter, _ := strconv.Atoi(OC[1])
-
-// 	behaviourString := records[6][0]
-// 	BH := strings.SplitN(behaviourString, ":", 2)
-// 	index, _ := strconv.Atoi(BH[1])
-// 	behaviour := ElevatorBehaviour(index)
-
-// 	directionString := records[7][0]
-// 	DIR := strings.SplitN(directionString, ":", 2)
-// 	direction, _ := strconv.Atoi(DIR[1])
-	
-
-// 	return returnSlice, orderClearCounter, orderCounter, behaviour, direction
-// }
-
-/*func isFirstProcess(prevID string) bool {
-	return len(prevID) == 0
-}*/
-
-/*func findNearestFloor() {
-	SetMotorDirection(MD_Down)
-			for e.Floor == -1 {
-				if GetFloor() != (-1) {
-					SetMotorDirection(MD_Stop)
-					break
-				}
+	floor := elevator.GetFloor()
+	if floor == -1 {
+		elevator.SetMotorDirection(e.State.Dirn)
+		for floor == -1 {
+			floor = elevator.GetFloor()
+			if floor != (-1) {
+				break
 			}
-			e.Floor = GetFloor()
-}*/
+		}
+	}
+	elevator.SetMotorDirection(elevator.MD_Stop)
+	e.State.Floor, e_IB.State.Floor = floor, floor
+	e_IB.Id = ID
+	return e, e_IB
+}

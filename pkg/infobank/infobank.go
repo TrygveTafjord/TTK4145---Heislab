@@ -1,7 +1,10 @@
 package infobank
 
 import (
+	"encoding/csv"
 	"fmt"
+	"os"
+	"strconv"
 	"time"
 
 	"project.com/pkg/assigner"
@@ -38,12 +41,19 @@ func Infobank(
 	go PeriodicUpdate(periodicUpdate_ch)
 
 	elevatorMap := make(map[string]ElevatorInfo)
-	thisElevator := <- init_ch
+
+	//hallRequestsMap := make(map[string][4][2]bool)
+	thisElevator := <-init_ch
+	inheritedRequests := inheritedRequests(thisElevator)
+	for _, reqs := range inheritedRequests {
+		button_ch <- reqs
+	}
 
 	elevatorMap[thisElevator.Id] = thisElevator
 
 	for {
 		select {
+
 		case buttonEvent := <-button_ch:
 			
 			if !confirmNewAssignment(newRequestToNetwork_ch, recieveConfirmation_ch, buttonEvent, len(elevatorMap), thisElevator.Id) {
@@ -53,6 +63,7 @@ func Infobank(
 
 			thisElevator.Requests[buttonEvent.Floor][buttonEvent.Button] = true
 			elevatorMap[thisElevator.Id] = thisElevator
+			saveInfoToFile(thisElevator)
 			assignerList := createAssignerInput(elevatorMap)
 			hallRequestsMap := assigner.AssignHallRequests(assignerList)
 			setElevatorMap(hallRequestsMap, &elevatorMap)
@@ -60,6 +71,7 @@ func Infobank(
 			setLightMatrix(hallRequestsMap, &thisElevator)
 			lightsUpdateToFSM_ch <- thisElevator.Lights
 			requestUpdateToFSM_ch <- thisElevator.Requests
+
 
 		case obstructed := <- obstructionFromFSM_ch:
 			//Sett opp confirmation?
@@ -69,20 +81,21 @@ func Infobank(
 				Id: thisElevator.Id, 
 				Obstructed: obstructed,
 			}
-			obstructedToNetwork_ch <- msg 
-		
-		case newState := <- stateUpdateFromFSM_ch:
+			obstructedToNetwork_ch <- msg
+
+		case newState := <-stateUpdateFromFSM_ch:
 
 			thisElevator.State = newState
-			msg := network.StateUpdate { 
-				Id: thisElevator.Id, 
+			saveInfoToFile(thisElevator)
+			msg := network.StateUpdate{
+				Id:    thisElevator.Id,
 				State: newState,
 			}
 
 			stateUpdateToNetwork_ch <- msg 
 			elevatorMap[thisElevator.Id] = thisElevator
 
-		case clearedRequests := <- clearRequestFromFSM_ch:
+		case clearedRequests := <-clearRequestFromFSM_ch:
 
 			for _, requests := range clearedRequests {
 				thisElevator.Requests[requests.Floor][requests.Button] = false
@@ -90,8 +103,9 @@ func Infobank(
 			}
 			thisElevator.Requests[clearedRequests[0].Floor][elevator.BT_Cab] = false
 			thisElevator.Lights[clearedRequests[0].Floor][elevator.BT_Cab] = false
-			
+			saveInfoToFile(thisElevator)
 			elevatorMap[thisElevator.Id] = thisElevator
+
 			if !confirmRemovedAssignments(requestClearedToNetwork_ch, recieveConfirmation_ch, clearedRequests, len(elevatorMap),thisElevator.Id){
 				fmt.Printf("confirmed removal")
 			}
@@ -107,24 +121,24 @@ func Infobank(
 			updatedElev := elevatorMap[msg.Id]
 			updatedElev.Requests[msg.Request.Floor][msg.Request.Button] = true
 			elevatorMap[msg.Id] = updatedElev
-
+			//save info to file????
 			assignerList := createAssignerInput(elevatorMap)
 			hallRequestsMap := assigner.AssignHallRequests(assignerList)
-			
+
 			setElevatorMap(hallRequestsMap, &elevatorMap)
 			setLightMatrix(hallRequestsMap, &thisElevator)
-			
+
 			thisElevator.Requests = elevatorMap[thisElevator.Id].Requests
 
 			lightsUpdateToFSM_ch <- thisElevator.Lights
 			requestUpdateToFSM_ch <- thisElevator.Requests
-		
+
 		case msg := <-stateUpdateFromNetwork_ch:
 			updatedElev := elevatorMap[msg.Id]
 			updatedElev.State = msg.State
 			elevatorMap[msg.Id] = updatedElev
-		
-		case msg := <- requestClearedFromNetwork_ch:
+
+		case msg := <-requestClearedFromNetwork_ch:
 
 			confirmation := network.Confirm {
 				Id:			thisElevator.Id,
@@ -163,11 +177,10 @@ func Infobank(
 				break
 			}
 			handlePeerupdate(peerUpdate, &thisElevator, &elevatorMap)
-			
+
 			assignerList := createAssignerInput(elevatorMap)
 			hallRequestsMap := assigner.AssignHallRequests(assignerList)
 			thisElevator.Requests = elevatorMap[thisElevator.Id].Requests
-
 			setLightMatrix(hallRequestsMap, &thisElevator)
 			requestUpdateToFSM_ch <- thisElevator.Requests
 		}
@@ -230,55 +243,51 @@ func setLightMatrix(newAssignmentsMap map[string][4][2]bool, e *ElevatorInfo) {
 	}
 }
 
-
 func createAssignerInput(elevatorMap map[string]ElevatorInfo) []assigner.AssignerInput {
 	assignerList := make([]assigner.AssignerInput, 0, len(elevatorMap))
 	for id, value := range elevatorMap {
-		a := assigner.AssignerInput {
-			Id: 		id,
-			Requests: 	value.Requests,
-			State: 		value.State,
+		a := assigner.AssignerInput{
+			Id:       id,
+			Requests: value.Requests,
+			State:    value.State,
 		}
 		assignerList = append(assignerList, a)
 	}
 	return assignerList
-} 
+}
 
 
-// func saveInfoToFile(e ElevatorInfo) error {
-// 	requests := e.Requests
-// 	filename := e.Id
+func saveInfoToFile(e ElevatorInfo) error {
+	requests := e.Requests
+	file, err := os.OpenFile(e.Id, os.O_WRONLY|os.O_CREATE, 0644)
+	if err != nil {
+		fmt.Printf("Failed to open file for writing: %v\n", err)
+	}
+	defer file.Close()
 
-// 	file, err := os.Create(filename)
-// 	if err != nil {
-// 		fmt.Printf("Failed to open file: %v", err)
-// 	}
+	writer := csv.NewWriter(file)
 
-// 	defer file.Close()
+	var records [][]string
+	for _, row := range requests {
+		cabReq := row[2]
+		records = append(records, []string{boolToString(cabReq)})
+	}
 
-// 	writer := csv.NewWriter(file)
+	records = append(records, []string{"OCC:" + strconv.Itoa(e.OrderClearedCounter)})
+	records = append(records, []string{"OC:" + strconv.Itoa(e.OrderCounter)})
+	records = append(records, []string{"BH:" + strconv.Itoa(int(e.State.Behaviour))})
+	records = append(records, []string{"DIR:" + strconv.Itoa(int(e.State.Dirn))})
 
-// 	var records [][]string
-// 	for _, row := range requests {
-// 		cabReq := row[2]
-// 		records = append(records, []string{boolToString(cabReq)})
-// 	}
+	for _, record := range records {
+		if err := writer.Write(record); err != nil {
+			return fmt.Errorf("failed to write to CSV: %v", err)
+		}
+	}
 
-// 	records = append(records, []string{"OCC:" + strconv.Itoa(e.OrderClearedCounter)})
-// 	records = append(records, []string{"OC:" + strconv.Itoa(e.OrderCounter)})
-// 	records = append(records, []string{"BH:" + strconv.Itoa(int(e.Behaviour))})
-// 	records = append(records, []string{"DIR:" + strconv.Itoa(int(e.Dirn))})
+	writer.Flush()
+	return nil
 
-// 	for _, record := range records {
-// 		if err := writer.Write(record); err != nil {
-// 			return fmt.Errorf("failed to write to CSV: %v", err)
-// 		}
-// 	}
-
-// 	writer.Flush()
-// 	return nil
-
-// }
+}
 
 func boolToString(value bool) string {
 
@@ -319,4 +328,14 @@ func SyncronizeAll(thisElevator ElevatorInfo, elevatorMap map[string]ElevatorInf
 			}
 		}
 	}
+}
+
+func inheritedRequests(thisElevator ElevatorInfo) []elevator.ButtonEvent {
+	var BTNevents []elevator.ButtonEvent
+	for floor := 0; floor < 4; floor++ {
+		if thisElevator.Requests[floor][elevator.BT_Cab] {
+			BTNevents = append(BTNevents, elevator.ButtonEvent{floor, elevator.BT_Cab})
+		}
+	}
+	return BTNevents
 }
