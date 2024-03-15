@@ -110,7 +110,7 @@ func initDefaultObjects(ID string) (elevator.Elevator, infobank.ElevatorInfo) {
 	}
 	e.State.Floor, e_IB.State.Floor = floor, floor
 	e.State.Behaviour, e_IB.State.Behaviour = elevator.EB_Idle, elevator.EB_Idle
-	e.State.Obstructed, e_IB.State.Obstructed = false, false
+	e.State.OutOfService, e_IB.State.OutOfService = false, false
 	e_IB.Id = ID
 	e_IB.OrderClearedCounter = 0
 	e_IB.OrderCounter = 0
@@ -159,6 +159,7 @@ func initReplacementObjects(ID string) (elevator.Elevator, infobank.ElevatorInfo
 	}
 	elevator.SetMotorDirection(elevator.MD_Stop)
 	e.State.Floor, e_IB.State.Floor = floor, floor
+	e.State.OutOfService, e_IB.State.OutOfService = false, false
 	e_IB.Id = ID
 	return e, e_IB
 }

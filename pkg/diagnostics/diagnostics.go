@@ -35,13 +35,12 @@ func Diagnostics(updateFromFSM_ch chan elevator.Elevator, obstructionDiagnose_ch
 					case Healthy:
 						
 					case Obstructed:
-						if !currentState.State.Obstructed {
+						if !currentState.State.OutOfService {
 							obstructionDiagnose_ch <- true
 						}
 						
 					case Reinitialize:
 						os.Exit(1)
-						//Reinit fra Ole!
 				}
 				prevState = currentState
 			}

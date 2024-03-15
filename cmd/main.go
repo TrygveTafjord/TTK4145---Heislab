@@ -47,16 +47,6 @@ func primaryProcess(port string, udpSendAddr string) {
 	initInfobank_ch := make(chan infobank.ElevatorInfo)
 	initNetwork := make(chan string)
 
-	requestUpdate_ch := make(chan [elevator.N_FLOORS][elevator.N_BUTTONS]bool, BUFFER_SIZE)
-	clearRequest_ch := make(chan []elevator.ButtonEvent, BUFFER_SIZE)
-	stateUpdate_ch := make(chan elevator.State, BUFFER_SIZE)
-	lightsUpdate_ch := make(chan [elevator.N_FLOORS][elevator.N_BUTTONS]bool, BUFFER_SIZE)
-	obstruction_ch := make(chan bool, BUFFER_SIZE)
-
-	initFSM_ch := make(chan elevator.Elevator)
-	initInfobank_ch := make(chan infobank.ElevatorInfo)
-	initNetwork := make(chan string)
-
 	requestInfobankToNetwork_ch := make(chan network.NewRequest, BUFFER_SIZE)
 	requestNetworkToInfobank_ch := make(chan network.NewRequest, BUFFER_SIZE)
 	obstructedInfobankToNetwork_ch := make(chan network.Obstructed, BUFFER_SIZE)
@@ -66,15 +56,8 @@ func primaryProcess(port string, udpSendAddr string) {
 	clearedInfobankToNetwork_ch := make(chan network.RequestCleared, BUFFER_SIZE)
 	clearedNetworkToInfobank_ch := make(chan network.RequestCleared, BUFFER_SIZE)
 
-
-
-	updateDiagnostics_ch    := make(chan elevator.Elevator)
-	obstructionDiagnoze_ch	:= make(chan bool)
-
-
-	updateDiagnostics_ch    := make(chan elevator.Elevator)
-	obstructionDiagnoze_ch	:= make(chan bool)
-
+	updateDiagnostics_ch := make(chan elevator.Elevator)
+	obstructionDiagnoze_ch := make(chan bool)
 	peerUpdate_ch := make(chan network.PeerUpdate, 50)
 
 	go elevator.FSM(initFSM_ch, requestUpdate_ch, clearRequest_ch, stateUpdate_ch, lightsUpdate_ch, obstruction_ch, updateDiagnostics_ch, obstructionDiagnoze_ch)

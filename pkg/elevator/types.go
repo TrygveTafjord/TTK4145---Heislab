@@ -8,7 +8,7 @@ const (
 type ElevatorBehaviour int
 
 const (
-	EB_Idle 	ElevatorBehaviour = iota
+	EB_Idle ElevatorBehaviour = iota
 	EB_DoorOpen
 	EB_Moving
 )
@@ -20,8 +20,8 @@ type Elevator struct {
 }
 
 type State struct {
-	Floor      int
-	Dirn       MotorDirection
-	Behaviour  ElevatorBehaviour
-	Obstructed bool
+	Floor        int
+	Dirn         MotorDirection
+	Behaviour    ElevatorBehaviour
+	OutOfService bool
 }
