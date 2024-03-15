@@ -5,22 +5,48 @@ import (
 	//"time"
 )
 
-func Network_fsm(networkUpdateTx_ch chan Msg, networkUpdateRx_ch chan Msg, peerUpdate_ch chan PeerUpdate) {
+func Network(
+	initialize_ch chan string,
+	newRequestToInfobank_ch chan NewRequest,
+	newRequestFromInfobank_ch chan NewRequest,
+	confirmationToInfobank_ch chan Confirm,
+	confirmationFromInfobank_ch chan Confirm,
+	obstructedToInfobank_ch chan Obstructed,
+	obstructedFromInfobank_ch chan Obstructed,
+	stateUpdateToInfobank_ch chan StateUpdate,
+	stateUpdateFromInfobank_ch chan StateUpdate,
+	requestClearedToInfobank_ch chan RequestCleared,
+	requestClearedFromInfobank_ch chan RequestCleared,
+	periodicInfobankToNetwork_ch chan Periodic,
+	periodicNetworkToInfobank_ch chan Periodic,
+	peerUpdate_ch chan PeerUpdate) {
 
-	id, err := LocalIP()
-	if err != nil {
-		fmt.Printf("could not get IP")
-	}
+	id := <-initialize_ch
 
-	peerUpdateCh := make(chan PeerUpdate, 5)
+	const (
+		BUFF_SIZE = 5
+	)
+
+	newRequestTx_ch := make(chan NewRequest, BUFF_SIZE)
+	newRequestRx_ch := make(chan NewRequest, BUFF_SIZE)
+	confirmRequestTx_ch := make(chan Confirm, BUFF_SIZE)
+	confirmRequestRx_ch := make(chan Confirm, BUFF_SIZE)
+	obstructedTx_ch := make(chan Obstructed, BUFF_SIZE)
+	obstructedRx_ch := make(chan Obstructed, BUFF_SIZE)
+	stateUpdateTx_ch := make(chan StateUpdate, BUFF_SIZE)
+	stateUpdateRx_ch := make(chan StateUpdate, BUFF_SIZE)
+	requestClearedTx_ch := make(chan RequestCleared, BUFF_SIZE)
+	requestClearedRx_ch := make(chan RequestCleared, BUFF_SIZE)
+	periodicTx_ch := make(chan Periodic, BUFF_SIZE)
+	periodicRx_ch := make(chan Periodic, BUFF_SIZE)
+  peerUpdateCh := make(chan PeerUpdate, 5)
 	peerTxEnable := make(chan bool, 5)
-	networkTx := make(chan Msg, 5)
-	networkRx := make(chan Msg, 5)
 
 	go TransmitterPeers(15653, id, peerTxEnable)
 	go ReceiverPeers(15653, peerUpdateCh)
-	go TransmitterBcast(20029, networkTx)
-	go ReceiverBcast(20029, networkRx)
+	go TransmitterBcast(20029, newRequestTx_ch, confirmRequestTx_ch, obstructedTx_ch, stateUpdateTx_ch, requestClearedTx_ch, periodicTx_ch)
+	go ReceiverBcast(20029, newRequestRx_ch, confirmRequestRx_ch, obstructedRx_ch, stateUpdateRx_ch, requestClearedRx_ch, periodicRx_ch)
+
 
 	for {
 		select {
@@ -31,15 +57,49 @@ func Network_fsm(networkUpdateTx_ch chan Msg, networkUpdateRx_ch chan Msg, peerU
 			fmt.Printf("  New:      %q\n", p.New)
 			fmt.Printf("  Lost:     %q\n", p.Lost)
 
-		case a := <-networkRx:
-			if a.Elevator.Id != id {
+		case msg := <-newRequestRx_ch:
+			if msg.Id != id {
+				newRequestToInfobank_ch <- msg
+			}
+		case msg := <-newRequestFromInfobank_ch:
+			newRequestTx_ch <- msg
 
-				networkUpdateRx_ch <- a
+		case msg := <-stateUpdateRx_ch:
+			if msg.Id != id {
+				stateUpdateToInfobank_ch <- msg
+			}
+		case msg := <-stateUpdateFromInfobank_ch:
+			stateUpdateTx_ch <- msg
 
+		case msg := <-requestClearedFromInfobank_ch:
+			requestClearedTx_ch <- msg
+
+		case msg := <-requestClearedRx_ch:
+			if msg.Id != id {
+				requestClearedToInfobank_ch <- msg
+			}
+		case msg := <-obstructedFromInfobank_ch:
+			obstructedTx_ch <- msg
+
+		case msg := <-obstructedRx_ch:
+			if msg.Id != id {
+				obstructedToInfobank_ch <- msg
 			}
 
-		case i := <-networkUpdateTx_ch:
-			networkTx <- i
+		case msg := <-confirmRequestRx_ch:
+			if msg.Id != id {
+				confirmationToInfobank_ch <- msg
+			}
+		case msg := <-confirmationFromInfobank_ch:
+			confirmRequestTx_ch <- msg
+
+		case msg := <-periodicRx_ch:
+			if msg.Id != id {
+				periodicNetworkToInfobank_ch <- msg
+			}
+		case msg := <-periodicInfobankToNetwork_ch:
+			periodicTx_ch <- msg
+
 		}
 	}
 }

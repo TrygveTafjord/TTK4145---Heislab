@@ -11,29 +11,17 @@ const (
 	EB_Idle ElevatorBehaviour = iota
 	EB_DoorOpen
 	EB_Moving
-	EB_Stopped
 )
 
 type Elevator struct {
-	Id                  string
-	OrderClearedCounter int
-	OrderCounter        int
-	Floor               int
-	Dirn                MotorDirection
-	Requests            [N_FLOORS][N_BUTTONS]bool
-	Lights              [N_FLOORS][N_BUTTONS]bool
-	Behaviour           ElevatorBehaviour
-	Standstill			int
-	Obstructed          bool
+	State    State
+	Requests [N_FLOORS][N_BUTTONS]bool
+	Lights   [N_FLOORS][N_BUTTONS]bool
 }
 
-
-type Diagnose int
-
-const (
-	Healthy				Diagnose = iota
-	Obstructed			
-	Problem
-	Unchanged
-	
-)
+type State struct {
+	Floor        int
+	Dirn         MotorDirection
+	Behaviour    ElevatorBehaviour
+	OutOfService bool
+}

@@ -2,18 +2,33 @@ package network
 
 import "project.com/pkg/elevator"
 
-type MsgType int
+type NewRequest struct {
+	Id      string
+	Request elevator.ButtonEvent
+}
 
-const (
-	NewOrder       MsgType = 0
-	OrderCompleted MsgType = 1
-	StateUpdate    MsgType = 2
-	ConfirmedOrder MsgType = 3
-	PeriodicMsg    MsgType = 4
-	ObstructedMsg  MsgType = 5
-)
+type StateUpdate struct {
+	Id    string
+	State elevator.State
+}
 
-type Msg struct {
-	MsgType  MsgType
-	Elevator elevator.Elevator
+type RequestCleared struct {
+	Id              string
+	ClearedRequests []elevator.ButtonEvent
+}
+
+type Obstructed struct {
+	Id         string
+	Obstructed bool
+}
+
+type Periodic struct {
+	Id       string
+	State    elevator.State
+	Requests [elevator.N_FLOORS][elevator.N_BUTTONS]bool
+}
+
+type Confirm struct {
+	Id      string
+	PassWrd string
 }
