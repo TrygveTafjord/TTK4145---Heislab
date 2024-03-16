@@ -9,7 +9,7 @@ import (
 	"project.com/pkg/timer"
 )
 
-func confirmNewAssignment(
+func confirmCycleNewAssignment(
 	newRequestToNetwork_ch chan network.NewRequest,
 	confirmRequest_ch chan network.Confirm,
 	buttonEvent elevator.ButtonEvent,
@@ -19,7 +19,7 @@ func confirmNewAssignment(
 
 	timeOut_ch := make(chan bool)
 
-	const CONFIRM_TIME float64 = 0.1
+	const confirmTime float64 = 0.1
 	confirmedNodes := make(map[string]bool)
 
 	msg := network.NewRequest{
@@ -29,7 +29,7 @@ func confirmNewAssignment(
 
 	newRequestToNetwork_ch <- msg
 
-	go timer.Run_timer(CONFIRM_TIME, timeOut_ch)
+	go timer.Run_timer(confirmTime, timeOut_ch)
 	ticker := time.NewTicker(5 * time.Millisecond)
 
 	for {
@@ -48,7 +48,6 @@ func confirmNewAssignment(
 			}
 
 		case <-ticker.C:
-			fmt.Printf("sent a request!\n")
 			newRequestToNetwork_ch <- msg
 
 		case <-timeOut_ch:
@@ -57,9 +56,7 @@ func confirmNewAssignment(
 	}
 }
 
-//confirmObstruction(obstructedToNetwork_ch, recieveConfirmation_ch, obstructed, len(elevatorMap), thisElevator.Id)
-
-func confirmObstructionState(
+func confirmCycleObstructionState(
 	obstructedToNetwork_ch chan network.Obstructed,
 	confirmRequest_ch chan network.Confirm,
 	obstruction bool,
@@ -69,7 +66,7 @@ func confirmObstructionState(
 
 	timeOut_ch := make(chan bool)
 
-	const CONFIRM_TIME float64 = 0.15
+	const confirmTime float64 = 0.15
 	confirmedNodes := make(map[string]bool)
 
 	msg := network.Obstructed{
@@ -79,7 +76,7 @@ func confirmObstructionState(
 
 	obstructedToNetwork_ch <- msg
 
-	go timer.Run_timer(CONFIRM_TIME, timeOut_ch)
+	go timer.Run_timer(confirmTime, timeOut_ch)
 	ticker := time.NewTicker(5 * time.Millisecond)
 
 	for {
@@ -98,7 +95,6 @@ func confirmObstructionState(
 			}
 
 		case <-ticker.C:
-			fmt.Printf("sent a request!\n")
 			obstructedToNetwork_ch <- msg
 
 		case <-timeOut_ch:

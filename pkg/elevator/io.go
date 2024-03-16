@@ -72,7 +72,6 @@ func PollFloorSensor(receiver chan<- int) {
 		time.Sleep(_pollRate)
 		v := GetFloor()
 		if v != prev && v != -1 {
-			//Prøver å hardcode at den må stoppe i 4 og 1 etasje
 			if v == 0 || v == 3 {
 				SetMotorDirection(MD_Stop)
 			}

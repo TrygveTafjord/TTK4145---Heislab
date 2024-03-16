@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"net"
+	"os"
 	"os/exec"
 	"time"
 
@@ -15,31 +16,27 @@ import (
 
 const (
 	heartbeatSleep = 500
+	BUFFER_SIZE = 50
+	numFloors = 4
 )
 
-func startBackupProcess() {
-	exec.Command("gnome-terminal", "--", "go", "run", "main.go").Run()
+func startBackupProcess(port string) {
+	exec.Command("gnome-terminal", "--", "go", "run", "main.go", port).Run()
 }
 
-func primaryProcess() {
-	fmt.Print("We get to this place")
-	sendAddr := "255.255.255.255:20008"
+func primaryProcess(sendAddr string) {
 
 	sendUDPAddr, err := net.ResolveUDPAddr("udp", sendAddr)
 	if err != nil {
 		fmt.Println(err)
-		fmt.Print("I found an error in sendudpaddr")
 		return
 	}
 	conn, err := net.DialUDP("udp", nil, sendUDPAddr)
 	if err != nil {
 		fmt.Println(err)
-		fmt.Print("I found an error in DIAL")
 		return
 	}
 	defer conn.Close()
-	fmt.Printf("Yelling into the void (aka sending heartbeats) at: %s\n", sendUDPAddr.String())
-	const BUFFER_SIZE = 50
 
 	initFSM_ch := make(chan elevator.Elevator, BUFFER_SIZE)
 	initInfobank_ch := make(chan infobank.ElevatorInfo, BUFFER_SIZE)
@@ -117,12 +114,12 @@ func primaryProcess() {
 
 	go diagnostics.Diagnostics(updateDiagnostics_ch, obstructionDiagnoze_ch)
 
-	ID, err := network.LocalIP()
+	id, _ := network.LocalIP()
 
-	initialize.ElevatorInit(initInfobank_ch, initFSM_ch, initNetwork_ch, ID)
+	initialize.ElevatorInit(initInfobank_ch, initFSM_ch, initNetwork_ch, id)
 
 	for {
-		msg := ID
+		msg := id
 		_, err := conn.Write([]byte(msg))
 		if err != nil {
 			fmt.Println("Primary failed to send heartbeat:", err)
@@ -134,7 +131,14 @@ func primaryProcess() {
 
 func backupProcess() {
 	fmt.Printf("---------BACKUP PHASE---------\n")
-	receiveAddr := ":20008"
+
+	args := os.Args
+	fmt.Println(args)
+	port := args[1]
+	fmt.Printf("PORT: %v", port)
+	receiveAddr := ":" + port
+	udpSendAddr := "255.255.255.255" + receiveAddr
+
 	receiveUDPAddr, err := net.ResolveUDPAddr("udp", receiveAddr)
 	if err != nil {
 		fmt.Println(err)
@@ -148,15 +152,14 @@ func backupProcess() {
 	}
 	
 	defer conn.Close()
-	fmt.Printf("Ears wide open, listening at: %s\n", receiveUDPAddr.String())
-	ID, err := network.LocalIP()
+
+	id, err := network.LocalIP()
 	if err != nil {    
 		fmt.Println(err)
 		return
 	}
-	fmt.Printf("ID: %s\n", ID)
 	
-	elevator.Init(ID + ":15657", 4)
+	elevator.Init(id + ":15657", numFloors)
 
 	for {
 		buffer := make([]byte, 1024)
@@ -164,13 +167,11 @@ func backupProcess() {
 		_, _, err := conn.ReadFromUDP(buffer)
 
 		if err == nil {
-			fmt.Print("on")
 		} else {
 			if e, ok := err.(net.Error); ok && e.Timeout() {
 				conn.Close()
-				startBackupProcess()
-				fmt.Print(("I start primary process"))
-				primaryProcess()
+				startBackupProcess(port)
+				primaryProcess(udpSendAddr)
 				return
 			} else {
 				fmt.Println("Error reading from UDP:", err)

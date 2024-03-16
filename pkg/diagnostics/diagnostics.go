@@ -23,10 +23,11 @@ func Diagnostics(updateFromFSM_ch chan elevator.Elevator, obstructionDiagnose_ch
 
 		case <-selfCheck_ch:
 			if hasRequest(currentState) && currentState.State == prevState.State && !currentState.State.OutOfService {
-				timeInSameStateWhileOrders += 1
+				timeInSameStateWhileOrders++
 			} else {
 				timeInSameStateWhileOrders = 0
 			}
+
 			diagnose := selfDiagnose(currentState, timeInSameStateWhileOrders)
 
 			switch diagnose {
@@ -36,7 +37,6 @@ func Diagnostics(updateFromFSM_ch chan elevator.Elevator, obstructionDiagnose_ch
 
 			case Reinitialize:
 				os.Exit(1)
-
 			}
 			prevState = currentState
 		}
@@ -75,38 +75,3 @@ func hasRequest(e elevator.Elevator) bool {
 	}
 	return false
 }
-
-// func Selfdiagnose(currentState elevator.Elevator, prevState elevator.Elevator, obstruction bool, standstill *int) Diagnose {
-
-// 	if hasRequest(currentState) && currentState.State.Behaviour == prevState.State.Behaviour {
-
-// 		switch currentState.State.Behaviour {
-
-// 		case elevator.EB_Idle:
-// 			return Problem
-
-// 		case elevator.EB_DoorOpen:
-// 			if currentState.State.Floor == prevState.State.Floor {
-// 				*standstill += 1
-// 			}
-// 		case elevator.EB_Moving:
-// 			if currentState.State.Floor == prevState.State.Floor {
-// 				*standstill += 1
-// 			}
-// 		}
-// 		*prevState = *elevator
-
-// 		if *standstill > 10 && obstruction {
-// 			return Obstructed
-// 		} else if *standstill == 20 && !obstruction {
-// 			return Problem
-// 		}
-
-// 	} else if obstruction {
-// 		return Unchanged
-
-// 	} else {
-// 		*standstill = 0
-// 	}
-// 	return Healthy
-// }

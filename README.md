@@ -1,3 +1,3 @@
 # TTK4145 Heislab
 
-created by Ole, Per and Trygve
+this is the only thing left
