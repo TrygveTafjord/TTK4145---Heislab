@@ -1,46 +1,41 @@
 package network
 
-import (
-	"fmt"
-	//"time"
-)
-
 func Network(
-	initialize_ch chan string,
-	newRequestToInfobank_ch chan NewRequest,
-	newRequestFromInfobank_ch chan NewRequest,
-	confirmationToInfobank_ch chan Confirm,
-	confirmationFromInfobank_ch chan Confirm,
-	obstructedToInfobank_ch chan Obstructed,
-	obstructedFromInfobank_ch chan Obstructed,
-	stateUpdateToInfobank_ch chan StateUpdate,
-	stateUpdateFromInfobank_ch chan StateUpdate,
-	requestClearedToInfobank_ch chan RequestCleared,
+	initialize_ch 				  chan string,
+	newRequestToInfobank_ch 	  chan NewRequest,
+	newRequestFromInfobank_ch     chan NewRequest,
+	confirmationToInfobank_ch     chan Confirm,
+	confirmationFromInfobank_ch   chan Confirm,
+	obstructedToInfobank_ch       chan Obstructed,
+	obstructedFromInfobank_ch     chan Obstructed,
+	stateUpdateToInfobank_ch      chan StateUpdate,
+	stateUpdateFromInfobank_ch    chan StateUpdate,
+	requestClearedToInfobank_ch   chan RequestCleared,
 	requestClearedFromInfobank_ch chan RequestCleared,
-	periodicInfobankToNetwork_ch chan Periodic,
-	periodicNetworkToInfobank_ch chan Periodic,
-	peerUpdate_ch chan PeerUpdate) {
+	periodicInfobankToNetwork_ch  chan Periodic,
+	periodicNetworkToInfobank_ch  chan Periodic,
+	peerUpdate_ch 				  chan PeerUpdate) {
 
 	id := <-initialize_ch
 
 	const (
-		BUFF_SIZE = 5
+		buffSize = 5
 	)
 
-	newRequestTx_ch := make(chan NewRequest, BUFF_SIZE)
-	newRequestRx_ch := make(chan NewRequest, BUFF_SIZE)
-	confirmRequestTx_ch := make(chan Confirm, BUFF_SIZE)
-	confirmRequestRx_ch := make(chan Confirm, BUFF_SIZE)
-	obstructedTx_ch := make(chan Obstructed, BUFF_SIZE)
-	obstructedRx_ch := make(chan Obstructed, BUFF_SIZE)
-	stateUpdateTx_ch := make(chan StateUpdate, BUFF_SIZE)
-	stateUpdateRx_ch := make(chan StateUpdate, BUFF_SIZE)
-	requestClearedTx_ch := make(chan RequestCleared, BUFF_SIZE)
-	requestClearedRx_ch := make(chan RequestCleared, BUFF_SIZE)
-	periodicTx_ch := make(chan Periodic, BUFF_SIZE)
-	periodicRx_ch := make(chan Periodic, BUFF_SIZE)
-  peerUpdateCh := make(chan PeerUpdate, 5)
-	peerTxEnable := make(chan bool, 5)
+	newRequestTx_ch 	:= make(chan NewRequest, buffSize)
+	newRequestRx_ch 	:= make(chan NewRequest, buffSize)
+	confirmRequestTx_ch := make(chan Confirm, buffSize)
+	confirmRequestRx_ch := make(chan Confirm, buffSize)
+	obstructedTx_ch 	:= make(chan Obstructed, buffSize)
+	obstructedRx_ch 	:= make(chan Obstructed, buffSize)
+	stateUpdateTx_ch 	:= make(chan StateUpdate, buffSize)
+	stateUpdateRx_ch 	:= make(chan StateUpdate, buffSize)
+	requestClearedTx_ch := make(chan RequestCleared, buffSize)
+	requestClearedRx_ch := make(chan RequestCleared, buffSize)
+	periodicTx_ch 		:= make(chan Periodic, buffSize)
+	periodicRx_ch 		:= make(chan Periodic, buffSize)
+  	peerUpdateCh 		:= make(chan PeerUpdate, buffSize)
+	peerTxEnable 		:= make(chan bool, buffSize)
 
 	go TransmitterPeers(15653, id, peerTxEnable)
 	go ReceiverPeers(15653, peerUpdateCh)
@@ -52,10 +47,6 @@ func Network(
 		select {
 		case p := <-peerUpdateCh:
 			peerUpdate_ch <- p
-			fmt.Printf("Peer update:\n")
-			fmt.Printf("  Peers:    %q\n", p.Peers)
-			fmt.Printf("  New:      %q\n", p.New)
-			fmt.Printf("  Lost:     %q\n", p.Lost)
 
 		case msg := <-newRequestRx_ch:
 			if msg.Id != id {
@@ -85,7 +76,6 @@ func Network(
 			if msg.Id != id {
 				obstructedToInfobank_ch <- msg
 			}
-
 		case msg := <-confirmRequestRx_ch:
 			if msg.Id != id {
 				confirmationToInfobank_ch <- msg

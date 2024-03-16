@@ -19,6 +19,7 @@ func Init(addr string, numFloors int) {
 		fmt.Println("Driver already initialized!")
 		return
 	}
+	fmt.Print("I get here")
 	_numFloors = numFloors
 	_mtx = sync.Mutex{}
 	var err error
@@ -71,8 +72,7 @@ func PollFloorSensor(receiver chan<- int) {
 		time.Sleep(_pollRate)
 		v := GetFloor()
 		if v != prev && v != -1 {
-			//Prøver å hardcode at den må stoppe i 4 og 1 etasje
-			if (v == 0 || v == 3) {
+			if v == 0 || v == 3 {
 				SetMotorDirection(MD_Stop)
 			}
 			receiver <- v

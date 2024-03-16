@@ -1,23 +1,22 @@
 package elevator
 
 import (
-	"time"
-
 	"project.com/pkg/timer"
 )
 
-func FSM(elevatorInit_ch chan Elevator,
-	requestUpdate_ch chan [N_FLOORS][N_BUTTONS]bool,
-	clearRequestToInfobank_ch chan []ButtonEvent,
-	stateToInfobank_ch chan State,
-	lightUpdate_ch chan [N_FLOORS][N_BUTTONS]bool,
+func FSM(
+	elevatorInit_ch 		     chan Elevator,
+	requestUpdate_ch 		     chan [N_FLOORS][N_BUTTONS]bool,
+	clearRequestToInfobank_ch    chan []ButtonEvent,
+	stateToInfobank_ch 		     chan State,
+	lightUpdate_ch               chan [N_FLOORS][N_BUTTONS]bool,
 	obstructedStateToInfobank_ch chan bool,
-	updateDiagnostics_ch chan Elevator,
-	obstructionDiagnose_ch chan bool) {
+	updateDiagnostics_ch 		 chan Elevator,
+	obstructionDiagnose_ch       chan bool) {
 
 	floorSensor_ch := make(chan int)
 	obstruction_ch := make(chan bool)
-	timer_ch := make(chan bool)
+	doorTimer_ch := make(chan bool)
 
 	go PollFloorSensor(floorSensor_ch)
 	go PollObstructionSwitch(obstruction_ch)
@@ -27,37 +26,51 @@ func FSM(elevatorInit_ch chan Elevator,
 
 	for {
 		select {
-		case requests := <-requestUpdate_ch:
+		case requests := <- requestUpdate_ch:
+			
 			elevator.Requests = requests
-			fsmNewRequests(elevator, timer_ch)
+			fsmNewRequests(elevator, doorTimer_ch)
+
 			if elevator.Requests != requests {
 				clearRequestToInfobank_ch <- getClearedRequests(requests, elevator.Requests)
 			}
+
 			stateToInfobank_ch <- elevator.State
 			updateDiagnostics_ch <- *elevator
 
-		case lights := <-lightUpdate_ch:
+		case lights := <- lightUpdate_ch:
+			
 			elevator.Lights = lights
 			setAllLights(elevator)
 
-		case newFloor := <-floorSensor_ch:
+		case newFloor := <- floorSensor_ch:
+			
 			requestsBeforeNewFloor := elevator.Requests
-			fsmOnFloorArrival(elevator, newFloor, timer_ch)
+			fsmOnFloorArrival(elevator, newFloor, doorTimer_ch)
 			stateToInfobank_ch <- elevator.State
+
 			if requestsBeforeNewFloor != elevator.Requests {
 				clearRequestToInfobank_ch <- getClearedRequests(requestsBeforeNewFloor, elevator.Requests)
 			}
 
 			updateDiagnostics_ch <- *elevator
 
-		case <-timer_ch:
-			handleDeparture(elevator, timer_ch)
+		case <- doorTimer_ch:
+			
+			requestsBeforeNewFloor := elevator.Requests
+			handleDeparture(elevator, doorTimer_ch)
 			stateToInfobank_ch <- elevator.State
 			updateDiagnostics_ch <- *elevator
 
-		case obstruction := <-obstruction_ch:
+			if elevator.Requests != requestsBeforeNewFloor {
+				clearRequestToInfobank_ch <- getClearedRequests(requestsBeforeNewFloor, elevator.Requests)
+				setAllLights(elevator)
+			}
+
+		case obstruction := <- obstruction_ch:
+			
 			if !obstruction && elevator.State.Behaviour == EB_DoorOpen {
-				go timer.Run_timer(3, timer_ch)
+				go timer.Run_timer(3, doorTimer_ch)
 
 				if elevator.State.OutOfService {
 					elevator.State.OutOfService = false
@@ -66,30 +79,32 @@ func FSM(elevatorInit_ch chan Elevator,
 				}
 			}
 
-		case <-obstructionDiagnose_ch:
+		case <- obstructionDiagnose_ch:
+			
 			elevator.State.OutOfService = true
 			obstructedStateToInfobank_ch <- true
 		}
 	}
 }
 
-func fsmNewRequests(e *Elevator, timer_ch chan bool) {
+func fsmNewRequests(e *Elevator, doorTimer_ch chan bool) {
+
 	if e.State.Behaviour == EB_DoorOpen {
-		if requests_shouldClearImmediately(*e) {
-			requests_clearAtCurrentFloor(e)
-			go timer.Run_timer(3, timer_ch)
+		if requestShouldClearImmediately(*e) {
+			requestsAndLightsClearAtCurrentFloor(e)
+			go timer.Run_timer(3, doorTimer_ch)
 			setAllLights(e)
 		}
 		return
 	}
 
-	e.State.Dirn, e.State.Behaviour = GetDirectionAndBehaviour(e)
+	e.State.Dirn, e.State.Behaviour = getDirectionAndBehaviour(e)
 	switch e.State.Behaviour {
 
 	case EB_DoorOpen:
 		SetDoorOpenLamp(true)
-		go timer.Run_timer(3, timer_ch)
-		requests_clearAtCurrentFloor(e)
+		go timer.Run_timer(3, doorTimer_ch)
+		requestsAndLightsClearAtCurrentFloor(e)
 
 	case EB_Moving:
 		SetMotorDirection(e.State.Dirn)
@@ -97,20 +112,21 @@ func fsmNewRequests(e *Elevator, timer_ch chan bool) {
 	setAllLights(e)
 }
 
-func handleDeparture(e *Elevator, timer_ch chan bool) {
+func handleDeparture(e *Elevator, doorTimer_ch chan bool) {
 	if GetObstruction() && e.State.Behaviour == EB_DoorOpen {
-		go timer.Run_timer(3, timer_ch)
+		go timer.Run_timer(3, doorTimer_ch)
 		return
 	}
 
-	e.State.Dirn, e.State.Behaviour = GetDirectionAndBehaviour(e)
+	e.State.Dirn, e.State.Behaviour = getDirectionAndBehaviour(e)
 
 	switch e.State.Behaviour {
 
 	case EB_DoorOpen:
 		SetDoorOpenLamp(true)
-		requests_clearAtCurrentFloor(e)
-		go timer.Run_timer(3, timer_ch)
+		requestsAndLightsClearAtCurrentFloor(e)
+		setAllLights(e)
+		go timer.Run_timer(3, doorTimer_ch)
 
 	case EB_Moving:
 		SetMotorDirection(e.State.Dirn)
@@ -121,19 +137,18 @@ func handleDeparture(e *Elevator, timer_ch chan bool) {
 	}
 }
 
-func fsmOnFloorArrival(e *Elevator, newFloor int, timer_ch chan bool) {
-
+func fsmOnFloorArrival(e *Elevator, newFloor int, doorTimer_ch chan bool) {
 	e.State.Floor = newFloor
 	SetFloorIndicator(newFloor)
 	setAllLights(e)
 
 	if requestShouldStop(*e) {
 		SetMotorDirection(MD_Stop)
-		e.State.Dirn = MD_Stop
 		SetDoorOpenLamp(true)
-		requests_clearAtCurrentFloor(e)
-		go timer.Run_timer(3, timer_ch)
+		requestsAndLightsClearAtCurrentFloor(e)
+		go timer.Run_timer(3, doorTimer_ch)
 		e.State.Behaviour = EB_DoorOpen
+		e.State.Dirn = MD_Stop
 		setAllLights(e)
 	}
 }
@@ -144,24 +159,6 @@ func setAllLights(e *Elevator) {
 			SetButtonLamp(ButtonType(btn), floor, e.Lights[floor][btn])
 		}
 	}
-}
-
-func PeriodicCheck(selfCheck_ch chan bool) {
-	for {
-		time.Sleep(1000 * time.Millisecond)
-		selfCheck_ch <- true
-	}
-}
-
-func Check_request(elevator Elevator) bool {
-	for i := 0; i < N_FLOORS; i++ {
-		for j := 0; j < N_BUTTONS; j++ {
-			if elevator.Requests[i][j] {
-				return true
-			}
-		}
-	}
-	return false
 }
 
 func getClearedRequests(oldRequests [N_FLOORS][N_BUTTONS]bool, newRequests [N_FLOORS][N_BUTTONS]bool) []ButtonEvent {

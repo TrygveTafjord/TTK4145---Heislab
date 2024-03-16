@@ -1,15 +1,11 @@
 package initialize
 
 import (
-	// "encoding/csv"
 	"encoding/csv"
 	"fmt"
 	"os"
 	"strconv"
 	"strings"
-
-	// "strconv"
-	// "strings"
 
 	"project.com/pkg/elevator"
 	"project.com/pkg/infobank"
@@ -23,7 +19,6 @@ func ElevatorInit(elevInitInfobank_ch chan infobank.ElevatorInfo,
 	var FSMelevator elevator.Elevator
 	var IBelevator infobank.ElevatorInfo
 
-	//Is there a dead process?
 	_, err := os.Open(ID)
 
 	if err != nil {
@@ -39,7 +34,7 @@ func ElevatorInit(elevInitInfobank_ch chan infobank.ElevatorInfo,
 
 }
 
-func readCSV(previousID string) ([]bool, int, int, elevator.ElevatorBehaviour, int) {
+func readCSV(previousID string) ([]bool, elevator.ElevatorBehaviour, int) {
 	file, err := os.Open(previousID)
 	if err != nil {
 		fmt.Printf("Failed to open file in READ: %v\n", err)
@@ -59,29 +54,22 @@ func readCSV(previousID string) ([]bool, int, int, elevator.ElevatorBehaviour, i
 		}
 	}
 
-	orderClearCounterString := records[4][0]
-	OCC := strings.SplitN(orderClearCounterString, ":", 2)
-	orderClearCounter, _ := strconv.Atoi(OCC[1])
-
-	orderCounterString := records[5][0]
-	OC := strings.SplitN(orderCounterString, ":", 2)
-	orderCounter, _ := strconv.Atoi(OC[1])
-
-	behaviourString := records[6][0]
+	behaviourString := records[4][0]
 	BH := strings.SplitN(behaviourString, ":", 2)
 	index, _ := strconv.Atoi(BH[1])
 	behaviour := elevator.ElevatorBehaviour(index)
 
-	directionString := records[7][0]
+	directionString := records[5][0]
 	DIR := strings.SplitN(directionString, ":", 2)
 	direction, _ := strconv.Atoi(DIR[1])
 
-	return returnSlice, orderClearCounter, orderCounter, behaviour, direction
+	return returnSlice, behaviour, direction
 }
 
 func initDefaultObjects(ID string) (elevator.Elevator, infobank.ElevatorInfo) {
 	var e elevator.Elevator
 	var e_IB infobank.ElevatorInfo
+
 	file, err := os.Create(ID)
 	if err != nil {
 		fmt.Printf("Failed to create file in initialize: %v \n \n", err)
@@ -112,20 +100,20 @@ func initDefaultObjects(ID string) (elevator.Elevator, infobank.ElevatorInfo) {
 	e.State.Behaviour, e_IB.State.Behaviour = elevator.EB_Idle, elevator.EB_Idle
 	e.State.OutOfService, e_IB.State.OutOfService = false, false
 	e_IB.Id = ID
-	e_IB.OrderClearedCounter = 0
-	e_IB.OrderCounter = 0
+
 	file.Close()
 	return e, e_IB
 }
 
 func initReplacementObjects(ID string) (elevator.Elevator, infobank.ElevatorInfo) {
 	fmt.Printf("\n \n \n ---------REINIT-------- \n \n \n ")
+
 	var cabCalls []bool
 	var direction int
 	var e elevator.Elevator
 	var e_IB infobank.ElevatorInfo
 
-	cabCalls, e_IB.OrderClearedCounter, e_IB.OrderCounter, e.State.Behaviour, direction = readCSV(ID)
+	cabCalls, e.State.Behaviour, direction = readCSV(ID)
 
 	for floor := 0; floor < 4; floor++ {
 		for btn := 0; btn < 2; btn++ {
@@ -158,8 +146,10 @@ func initReplacementObjects(ID string) (elevator.Elevator, infobank.ElevatorInfo
 		}
 	}
 	elevator.SetMotorDirection(elevator.MD_Stop)
+
 	e.State.Floor, e_IB.State.Floor = floor, floor
 	e.State.OutOfService, e_IB.State.OutOfService = false, false
 	e_IB.Id = ID
+	
 	return e, e_IB
 }

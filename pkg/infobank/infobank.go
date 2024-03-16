@@ -13,33 +13,33 @@ import (
 )
 
 func Infobank(
-	init_ch chan ElevatorInfo,
-	requestUpdateToFSM_ch chan [elevator.N_FLOORS][elevator.N_BUTTONS]bool,
-	clearRequestFromFSM_ch chan []elevator.ButtonEvent,
-	stateUpdateFromFSM_ch chan elevator.State,
-	lightsUpdateToFSM_ch chan [elevator.N_FLOORS][elevator.N_BUTTONS]bool,
-	obstructionFromFSM_ch chan bool,
-	newRequestToNetwork_ch chan network.NewRequest,
-	newRequestFromNetwork_ch chan network.NewRequest,
-	sendConfirmation_ch chan network.Confirm,
-	recieveConfirmation_ch chan network.Confirm,
-	obstructedToNetwork_ch chan network.Obstructed,
-	obstructedFromNetwork_ch chan network.Obstructed,
-	stateUpdateToNetwork_ch chan network.StateUpdate,
-	stateUpdateFromNetwork_ch chan network.StateUpdate,
-	requestClearedToNetwork_ch chan network.RequestCleared,
+	init_ch 					 chan ElevatorInfo,
+	requestUpdateToFSM_ch 		 chan [elevator.N_FLOORS][elevator.N_BUTTONS]bool,
+	clearRequestFromFSM_ch 		 chan []elevator.ButtonEvent,
+	stateUpdateFromFSM_ch 		 chan elevator.State,
+	lightsUpdateToFSM_ch 		 chan [elevator.N_FLOORS][elevator.N_BUTTONS]bool,
+	obstructionFromFSM_ch 		 chan bool,
+	newRequestToNetwork_ch  	 chan network.NewRequest,
+	newRequestFromNetwork_ch 	 chan network.NewRequest,
+	sendConfirmation_ch 		 chan network.Confirm,
+	recieveConfirmation_ch       chan network.Confirm,
+	obstructedToNetwork_ch       chan network.Obstructed,
+	obstructedFromNetwork_ch     chan network.Obstructed,
+	stateUpdateToNetwork_ch 	 chan network.StateUpdate,
+	stateUpdateFromNetwork_ch 	 chan network.StateUpdate,
+	requestClearedToNetwork_ch 	 chan network.RequestCleared,
 	requestClearedFromNetwork_ch chan network.RequestCleared,
 	periodicInfobankToNetwork_ch chan network.Periodic,
 	periodicNetworkToInfobank_ch chan network.Periodic,
-	peerUpdate_ch chan network.PeerUpdate,
+	peerUpdate_ch 				 chan network.PeerUpdate,
+) { 
+	const bufferSize = 50
 
-) {
-
-	button_ch := make(chan elevator.ButtonEvent, 50)
-	periodicUpdate_ch := make(chan bool, 50)
+	button_ch := make(chan elevator.ButtonEvent, bufferSize)
+	periodicUpdate_ch := make(chan bool, bufferSize)
 
 	go elevator.PollButtons(button_ch)
-	go PeriodicUpdate(periodicUpdate_ch)
+	go periodicUpdate(periodicUpdate_ch)
 
 	elevatorMap := make(map[string]ElevatorInfo)
 
@@ -57,12 +57,12 @@ func Infobank(
 		case buttonEvent := <-button_ch:
 
 			if len(elevatorMap) > 1 {
-				if !confirmNewAssignment(newRequestToNetwork_ch, recieveConfirmation_ch, buttonEvent, len(elevatorMap), thisElevator.Id) {
+				if !confirmCycleNewAssignment(newRequestToNetwork_ch, recieveConfirmation_ch, buttonEvent, len(elevatorMap), thisElevator.Id) {
 					break
 				}
 			}
 
-			thisElevator.Requests[buttonEvent.Floor][buttonEvent.Button] = true
+			thisElevator.Requests[buttonEvent.Floor][buttonEvent.Button] = true		
 			distributeRequests(&elevatorMap, &thisElevator)
 
 			setLightMatrix(elevatorMap, &thisElevator)
@@ -79,7 +79,7 @@ func Infobank(
 
 			thisElevator.State.OutOfService = obstructed
 			if len(elevatorMap) > 1 {
-				evaluateRequests(&elevatorMap, &thisElevator)
+				redistributeObstructedElevatorOrders(&elevatorMap, &thisElevator)
 			}
 			msg := network.Obstructed{
 				Id:         thisElevator.Id,
@@ -92,7 +92,7 @@ func Infobank(
 
 			distributeRequests(&elevatorMap, &thisElevator)
 
-			confirmObstructionState(obstructedToNetwork_ch, recieveConfirmation_ch, obstructed, len(elevatorMap), thisElevator.Id)
+			confirmCycleObstructionState(obstructedToNetwork_ch, recieveConfirmation_ch, obstructed, len(elevatorMap), thisElevator.Id)
 
 		case newState := <-stateUpdateFromFSM_ch:
 
@@ -159,10 +159,15 @@ func Infobank(
 		case msg := <-requestClearedFromNetwork_ch:
 
 			updatedElev := elevatorMap[msg.Id]
+
 			for _, requests := range msg.ClearedRequests {
 				updatedElev.Requests[requests.Floor][requests.Button] = false
-				thisElevator.Lights[requests.Floor][requests.Button] = false
+
+				if requests.Button != elevator.BT_Cab {
+					thisElevator.Lights[requests.Floor][requests.Button] = false
+				}
 			}
+
 			elevatorMap[msg.Id] = updatedElev
 			lightsUpdateToFSM_ch <- thisElevator.Lights
 
@@ -177,7 +182,7 @@ func Infobank(
 			obstructedElevator := elevatorMap[msg.Id]
 			obstructedElevator.State.OutOfService = msg.Obstructed
 			elevatorMap[msg.Id] = obstructedElevator
-			evaluateRequests(&elevatorMap, &obstructedElevator)
+			redistributeObstructedElevatorOrders(&elevatorMap, &obstructedElevator)
 
 			thisElevator.Requests = elevatorMap[thisElevator.Id].Requests
 
@@ -190,10 +195,11 @@ func Infobank(
 				State:    thisElevator.State,
 				Requests: thisElevator.Requests,
 			}
+
 			periodicInfobankToNetwork_ch <- msg
 
 		case msg := <-periodicNetworkToInfobank_ch:
-
+			
 			recievedElevator := elevatorMap[msg.Id]
 			recievedElevator.Requests = msg.Requests
 			recievedElevator.State = msg.State
@@ -209,13 +215,13 @@ func Infobank(
 			lightsUpdateToFSM_ch <- thisElevator.Lights
 
 		case peerUpdate := <-peerUpdate_ch:
+
 			if len(peerUpdate.Lost) == 0 {
 				break
 			}
+
 			removeLostPeers(peerUpdate, &thisElevator, &elevatorMap)
-
 			distributeRequests(&elevatorMap, &thisElevator)
-
 			setLightMatrix(elevatorMap, &thisElevator)
 
 			requestUpdateToFSM_ch <- thisElevator.Requests
@@ -236,7 +242,7 @@ func setElevatorMap(newAssignmentsMap map[string][4][2]bool, elevatorMap *map[st
 	}
 }
 
-func PeriodicUpdate(periodicUpdate_ch chan bool) {
+func periodicUpdate(periodicUpdate_ch chan bool) {
 	for {
 		time.Sleep(300 * time.Millisecond)
 		periodicUpdate_ch <- true
@@ -256,7 +262,7 @@ func removeLostPeers(peerUpdate network.PeerUpdate, thisElevator *ElevatorInfo, 
 	(*elevatorMap)[thisElevator.Id] = *thisElevator
 }
 
-func evaluateRequests(elevatorMap *map[string]ElevatorInfo, e *ElevatorInfo) {
+func redistributeObstructedElevatorOrders(elevatorMap *map[string]ElevatorInfo, e *ElevatorInfo) {
 	(*elevatorMap)[e.Id] = *e
 
 	aliveElevators, ordersToBeCleared := removeDeadElevators(*elevatorMap)
@@ -292,22 +298,6 @@ func evaluateRequests(elevatorMap *map[string]ElevatorInfo, e *ElevatorInfo) {
 	setLightMatrix(*elevatorMap, e)
 }
 
-
-
-func removeDeadElevators(elevatorMap map[string]ElevatorInfo) (map[string]ElevatorInfo, [elevator.N_FLOORS][elevator.N_BUTTONS - 1]bool) {
-	var ordersToBeTransferred [elevator.N_FLOORS][elevator.N_BUTTONS - 1]bool
-	assignmentsMap := make(map[string]ElevatorInfo)
-
-	for ID, elev := range elevatorMap {
-		if elev.State.OutOfService {
-			ordersToBeTransferred = generateHallCalls(elev.Requests)
-		} else {
-			assignmentsMap[ID] = elev
-		}
-	}
-	return assignmentsMap, ordersToBeTransferred
-}
-
 func setLightMatrix(elevatorMap map[string]ElevatorInfo, e *ElevatorInfo) {
 	for _, value := range elevatorMap {
 		for i := 0; i < elevator.N_FLOORS; i++ {
@@ -329,7 +319,7 @@ func distributeRequests(elevatorMap *map[string]ElevatorInfo, e *ElevatorInfo) {
 
 func syncronizeLights(requests [elevator.N_FLOORS][elevator.N_BUTTONS]bool, id string, elevatorMap map[string]ElevatorInfo, lights *[elevator.N_FLOORS][elevator.N_BUTTONS]bool) {
 	for i := 0; i < elevator.N_FLOORS; i++ {
-		for j := 0; j < elevator.N_BUTTONS; j++ {
+		for j := 0; j < elevator.N_BUTTONS-1; j++ {
 			if requests[i][j] != elevatorMap[id].Requests[i][j] {
 				lights[i][j] = requests[i][j]
 			}
@@ -339,6 +329,7 @@ func syncronizeLights(requests [elevator.N_FLOORS][elevator.N_BUTTONS]bool, id s
 
 func createAssignerInput(assignerMap map[string]ElevatorInfo) []assigner.AssignerInput {
 	var assignerList []assigner.AssignerInput
+
 	for id, elev := range assignerMap {
 		a := assigner.AssignerInput{
 			Id:       id,
@@ -350,9 +341,23 @@ func createAssignerInput(assignerMap map[string]ElevatorInfo) []assigner.Assigne
 	return assignerList
 }
 
+func removeDeadElevators(elevatorMap map[string]ElevatorInfo) (map[string]ElevatorInfo, [elevator.N_FLOORS][elevator.N_BUTTONS - 1]bool) {
+	var ordersToBeTransferred [elevator.N_FLOORS][elevator.N_BUTTONS - 1]bool
+	assignmentsMap := make(map[string]ElevatorInfo)
+
+	for ID, elev := range elevatorMap {
+		if elev.State.OutOfService {
+			ordersToBeTransferred = generateHallCalls(elev.Requests)
+		} else {
+			assignmentsMap[ID] = elev
+		}
+	}
+	return assignmentsMap, ordersToBeTransferred
+}
 
 func transferOrders(ordersToBeTransferred [elevator.N_FLOORS][elevator.N_BUTTONS - 1]bool, assignmentsMap map[string]ElevatorInfo) map[string]ElevatorInfo {
 	returnMap := make(map[string]ElevatorInfo)
+
 	for ID, elev := range assignmentsMap {
 		for i := 0; i < elevator.N_FLOORS; i++ {
 			for j := 0; j < elevator.N_BUTTONS-1; j++ {
@@ -378,6 +383,7 @@ func generateHallCalls(requests [elevator.N_FLOORS][elevator.N_BUTTONS]bool) (or
 func saveInfoToFile(e ElevatorInfo) error {
 	requests := e.Requests
 	file, err := os.OpenFile(e.Id, os.O_WRONLY|os.O_CREATE, 0644)
+
 	if err != nil {
 		fmt.Printf("Failed to open file for writing: %v\n", err)
 	}
@@ -391,8 +397,6 @@ func saveInfoToFile(e ElevatorInfo) error {
 		records = append(records, []string{boolToString(cabReq)})
 	}
 
-	records = append(records, []string{"OCC:" + strconv.Itoa(e.OrderClearedCounter)})
-	records = append(records, []string{"OC:" + strconv.Itoa(e.OrderCounter)})
 	records = append(records, []string{"BH:" + strconv.Itoa(int(e.State.Behaviour))})
 	records = append(records, []string{"DIR:" + strconv.Itoa(int(e.State.Dirn))})
 
@@ -404,7 +408,6 @@ func saveInfoToFile(e ElevatorInfo) error {
 
 	writer.Flush()
 	return nil
-
 }
 
 func boolToString(value bool) string {
@@ -418,6 +421,7 @@ func boolToString(value bool) string {
 
 func inheritedRequests(thisElevator ElevatorInfo) []elevator.ButtonEvent {
 	var BTNevents []elevator.ButtonEvent
+	
 	for floor := 0; floor < 4; floor++ {
 		if thisElevator.Requests[floor][elevator.BT_Cab] {
 			BTNevents = append(BTNevents, elevator.ButtonEvent{Floor: floor, Button: elevator.BT_Cab})

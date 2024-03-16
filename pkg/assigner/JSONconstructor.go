@@ -8,11 +8,13 @@ import (
 )
 
 func AssignHallRequests(assignerList []AssignerInput) map[string][4][2]bool {
-	JSON, masterJSONMap := CreateJSON(assignerList...)
+
+	JSON, masterJSONMap := createJSON(assignerList...)
+	
 	return HallRequestAssigner(JSON, masterJSONMap)
 }
 
-func CreateJSON(elevators ...AssignerInput) ([]byte, map[string]interface{}) {
+func createJSON(elevators ...AssignerInput) ([]byte, map[string]interface{}) {
 	hallRequests := generateHallRequests(elevators)
 	auxJSONMap := make(map[string]interface{})
 

@@ -16,14 +16,17 @@ import (
 
 const (
 	heartbeatSleep = 500
+	BUFFER_SIZE = 50
+	numFloors = 4
 )
 
 func startBackupProcess(port string) {
 	exec.Command("gnome-terminal", "--", "go", "run", "main.go", port).Run()
 }
 
-func primaryProcess(port string, udpSendAddr string) {
-	sendUDPAddr, err := net.ResolveUDPAddr("udp", udpSendAddr)
+func primaryProcess(sendAddr string) {
+
+	sendUDPAddr, err := net.ResolveUDPAddr("udp", sendAddr)
 	if err != nil {
 		fmt.Println(err)
 		return
@@ -34,8 +37,6 @@ func primaryProcess(port string, udpSendAddr string) {
 		return
 	}
 	defer conn.Close()
-
-	const BUFFER_SIZE = 50
 
 	initFSM_ch := make(chan elevator.Elevator, BUFFER_SIZE)
 	initInfobank_ch := make(chan infobank.ElevatorInfo, BUFFER_SIZE)
@@ -113,12 +114,12 @@ func primaryProcess(port string, udpSendAddr string) {
 
 	go diagnostics.Diagnostics(updateDiagnostics_ch, obstructionDiagnoze_ch)
 
-	ID, err := network.LocalIP(port)
+	id, _ := network.LocalIP()
 
-	initialize.ElevatorInit(initInfobank_ch, initFSM_ch, initNetwork_ch, ID)
+	initialize.ElevatorInit(initInfobank_ch, initFSM_ch, initNetwork_ch, id)
 
 	for {
-		msg := ID
+		msg := id
 		_, err := conn.Write([]byte(msg))
 		if err != nil {
 			fmt.Println("Primary failed to send heartbeat:", err)
@@ -135,42 +136,42 @@ func backupProcess() {
 	fmt.Println(args)
 	port := args[1]
 	fmt.Printf("PORT: %v", port)
-	udpReceiveAddr := ":" + port
-	udpSendAddr := "255.255.255.255" + udpReceiveAddr
+	receiveAddr := ":" + port
+	udpSendAddr := "255.255.255.255" + receiveAddr
 
-	receiveUDPAddr, err := net.ResolveUDPAddr("udp", udpReceiveAddr)
+	receiveUDPAddr, err := net.ResolveUDPAddr("udp", receiveAddr)
 	if err != nil {
 		fmt.Println(err)
 		return
 	}
-
+	
 	conn, err := net.ListenUDP("udp", receiveUDPAddr)
 	if err != nil {
 		fmt.Println(err)
 		return
 	}
-
+	
 	defer conn.Close()
 
-	elevator.Init("localhost:"+port, 4)
-
-	// if err != nil {
-	// 	fmt.Printf("could not get IP")
-	// }
+	id, err := network.LocalIP()
+	if err != nil {    
+		fmt.Println(err)
+		return
+	}
+	
+	elevator.Init(id + ":15657", numFloors)
 
 	for {
 		buffer := make([]byte, 1024)
-		conn.SetReadDeadline(time.Now().Add(heartbeatSleep * 5 * time.Millisecond))
+		conn.SetReadDeadline(time.Now().Add(heartbeatSleep * 10 * time.Millisecond))
 		_, _, err := conn.ReadFromUDP(buffer)
 
 		if err == nil {
-			fmt.Print("on")
 		} else {
 			if e, ok := err.(net.Error); ok && e.Timeout() {
 				conn.Close()
 				startBackupProcess(port)
-				fmt.Print(("I start primary process"))
-				primaryProcess(port, udpSendAddr)
+				primaryProcess(udpSendAddr)
 				return
 			} else {
 				fmt.Println("Error reading from UDP:", err)
