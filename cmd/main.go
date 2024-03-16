@@ -23,7 +23,7 @@ func startBackupProcess() {
 
 func primaryProcess() {
 	fmt.Print("We get to this place")
-	sendAddr := "255.255.255.255:20009"
+	sendAddr := "255.255.255.255:20008"
 
 	sendUDPAddr, err := net.ResolveUDPAddr("udp", sendAddr)
 	if err != nil {
@@ -134,7 +134,7 @@ func primaryProcess() {
 
 func backupProcess() {
 	fmt.Printf("---------BACKUP PHASE---------\n")
-	receiveAddr := ":20009"
+	receiveAddr := ":20008"
 	receiveUDPAddr, err := net.ResolveUDPAddr("udp", receiveAddr)
 	if err != nil {
 		fmt.Println(err)
